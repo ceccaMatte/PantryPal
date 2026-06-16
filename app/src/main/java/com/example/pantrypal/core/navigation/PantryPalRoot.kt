@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -86,13 +87,13 @@ fun PantryPalRoot() {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (!currentRoute.isAddFlowRoute()) {
+            if (!currentRoute.isAddFlowRoute() && !showAddChoice) {
                 PantryBottomBar(
                     items = bottomBarItems,
                     currentRoute = currentRoute.toSelectedTabRoute(),
                     onItemClick = { route -> navController.navigateMainTab(route) },
                     onFabClick = {
-                        addOriginRoute = currentRoute.toSelectedTabRoute() ?: AppRoute.Home.route
+                        addOriginRoute = backStackEntry.toConcreteRoute() ?: currentRoute.toSelectedTabRoute() ?: AppRoute.Home.route
                         showAddChoice = true
                     }
                 )
@@ -106,7 +107,7 @@ fun PantryPalRoot() {
             addOriginRoute = addOriginRoute,
             showSnackbar = { message -> coroutineScope.launch { snackbarHostState.showSnackbar(message) } },
             openAddChoice = {
-                addOriginRoute = currentRoute.toSelectedTabRoute() ?: AppRoute.Home.route
+                addOriginRoute = backStackEntry.toConcreteRoute() ?: currentRoute.toSelectedTabRoute() ?: AppRoute.Home.route
                 showAddChoice = true
             },
             modifier = Modifier.padding(innerPadding)
@@ -168,7 +169,13 @@ private fun PantryNavHost(
                 viewModel.effects.collect { effect ->
                     when (effect) {
                         HomeEffect.OpenAddChoiceSheet -> openAddChoice()
-                        is HomeEffect.NavigateToPantry -> navController.navigateMainTab(AppRoute.Pantry.route)
+                        is HomeEffect.NavigateToPantry -> {
+                            if (effect.focusedCategoryId != null) {
+                                navController.navigate(AppRoute.FoodDetail.create(effect.focusedCategoryId))
+                            } else {
+                                navController.navigateMainTab(AppRoute.Pantry.route)
+                            }
+                        }
                         is HomeEffect.NavigateToRecipeDetail -> navController.navigate(AppRoute.RecipeDetail.create(effect.recipeId))
                     }
                 }
@@ -306,7 +313,11 @@ private fun handleAddFoodEffect(
     showSnackbar: (String) -> Unit
 ) {
     when (effect) {
-        AddFoodEffect.FinishAddFlow -> navController.popBackStack(addOriginRoute, false)
+        AddFoodEffect.FinishAddFlow -> {
+            if (!navController.popBackStack(addOriginRoute, false)) {
+                navController.navigateMainTab(addOriginRoute.toSelectedTabRoute() ?: AppRoute.Home.route)
+            }
+        }
         AddFoodEffect.NavigateToManualAdd -> navController.navigate(AppRoute.ManualAdd.route) {
             popUpTo(AppRoute.Scan.route) { inclusive = true }
         }
@@ -334,6 +345,16 @@ private fun String?.toSelectedTabRoute(): String? =
         this == AppRoute.Profile.route -> AppRoute.Profile.route
         else -> this
     }
+
+private fun NavBackStackEntry?.toConcreteRoute(): String? {
+    val route = this?.destination?.route ?: return null
+    return when (route) {
+        AppRoute.FoodDetail.route -> arguments?.getString("categoryId")?.toLongOrNull()?.let(AppRoute.FoodDetail::create)
+        AppRoute.FoodLinks.route -> arguments?.getString("categoryId")?.toLongOrNull()?.let(AppRoute.FoodLinks::create)
+        AppRoute.RecipeDetail.route -> arguments?.getString("recipeId")?.let(AppRoute.RecipeDetail::create)
+        else -> route
+    }
+}
 
 private val bottomBarItems = listOf(
     PantryBottomBarItem(AppRoute.Home.route, "Home", Icons.Default.Home),

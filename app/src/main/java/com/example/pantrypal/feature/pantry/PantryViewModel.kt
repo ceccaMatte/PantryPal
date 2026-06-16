@@ -11,13 +11,18 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PantryViewModel @Inject constructor(
     private val pantryRepository: PantryRepository,
@@ -31,41 +36,16 @@ class PantryViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            settingsRepository.observeSettings().collect { settings ->
-                _uiState.update { it.copy(selectedFilter = settings.pantryStorageFilter) }
-                observeRows(settings.pantryStorageFilter)
-            }
-        }
-    }
-
-    fun onEvent(event: PantryEvent) {
-        viewModelScope.launch {
-            when (event) {
-                is PantryEvent.OnFilterSelected -> {
-                    _uiState.update { it.copy(selectedFilter = event.filter) }
-                    settingsRepository.updatePantryStorageFilter(event.filter)
-                    observeRows(event.filter)
+            settingsRepository.observeSettings()
+                .map { it.pantryStorageFilter }
+                .flatMapLatest { filter ->
+                    _uiState.update { it.copy(selectedFilter = filter, isLoading = true) }
+                    observeRows(filter)
                 }
-                is PantryEvent.OnFoodClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
-                is PantryEvent.OnExpiringFoodClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
-                is PantryEvent.OnMinusClick -> {
-                    val changed = pantryRepository.decrementSingleLotCategory(event.row.categoryId)
-                    if (!changed) {
-                        _effects.send(PantryEffect.ShowSnackbar("Quantita pronta per lo step successivo"))
-                    }
-                }
-                is PantryEvent.OnPlusClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
-                PantryEvent.OnFabClick -> _effects.send(PantryEffect.OpenAddChoiceSheet)
-            }
-        }
-    }
-
-    private fun observeRows(filter: StorageLocationFilter) {
-        viewModelScope.launch {
-            pantryRepository.observePantryRows(filter).collect { rows ->
-                if (rows.isNotEmpty()) {
+                .collect { rows ->
                     _uiState.update { state ->
                         state.copy(
+                            isLoading = false,
                             pantryRows = rows.map(PantryRow::toUi),
                             expiringFoods = rows
                                 .filter { it.nearestExpirationDate != null }
@@ -76,8 +56,31 @@ class PantryViewModel @Inject constructor(
                     }
                 }
             }
+    }
+
+    fun onEvent(event: PantryEvent) {
+        viewModelScope.launch {
+            when (event) {
+                is PantryEvent.OnFilterSelected -> {
+                    _uiState.update { it.copy(selectedFilter = event.filter) }
+                    settingsRepository.updatePantryStorageFilter(event.filter)
+                }
+                is PantryEvent.OnFoodClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
+                is PantryEvent.OnExpiringFoodClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
+                is PantryEvent.OnMinusClick -> {
+                    val changed = pantryRepository.decrementSingleLotCategory(event.row.categoryId)
+                    if (!changed) {
+                        _effects.send(PantryEffect.NavigateToFoodDetail(event.row.categoryId))
+                    }
+                }
+                is PantryEvent.OnPlusClick -> _effects.send(PantryEffect.NavigateToFoodDetail(event.categoryId))
+                PantryEvent.OnFabClick -> _effects.send(PantryEffect.OpenAddChoiceSheet)
+            }
         }
     }
+
+    private fun observeRows(filter: StorageLocationFilter): Flow<List<PantryRow>> =
+        pantryRepository.observePantryRows(filter)
 }
 
 private fun PantryRow.toUi(): PantryRowUi =

@@ -57,6 +57,18 @@ class FoodCategoryMatcherTest {
         assertTrue(matcher.shouldShowCreateNew("Kefir", sources))
     }
 
+    @Test
+    fun shouldShowCreateNew_isFalseForExactAlias() {
+        val sources = listOf(
+            source(
+                category(1, "Latte", "latte"),
+                alias(10, 1, "milk")
+            )
+        )
+
+        assertFalse(matcher.shouldShowCreateNew("milk", sources))
+    }
+
     private fun source(category: FoodCategory, vararg aliases: RecipeIngredientLink): FoodCategoryMatchSource =
         FoodCategoryMatchSource(category = category, aliases = aliases.toList())
 

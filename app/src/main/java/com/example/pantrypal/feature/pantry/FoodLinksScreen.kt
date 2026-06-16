@@ -1,6 +1,7 @@
 package com.example.pantrypal.feature.pantry
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -20,8 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -76,34 +75,54 @@ fun FoodLinksScreen(
         }
 
         SectionLabel("PRODOTTI SCANSIONATI")
-        state.scannedProducts.ifEmpty {
-            listOf(ProductLinkUi("empty", "Nessun prodotto collegato", "Scansioni future appariranno qui"))
-        }.forEach { product ->
+        if (state.scannedProducts.isEmpty()) {
             PantryCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-                    PlaceholderImageBox(modifier = Modifier.size(76.dp), background = Color(0xFFF2E7D8))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(product.productName, style = PantryTypography.titleLarge)
-                        Text(product.subtitle, color = PantryColors.Muted)
+                Text("Nessun prodotto collegato", style = PantryTypography.titleMedium)
+                Text("I prodotti da barcode appariranno qui nei prossimi step.", color = PantryColors.Muted)
+            }
+        } else {
+            state.scannedProducts.forEach { product ->
+                PantryCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
+                        PlaceholderImageBox(modifier = Modifier.size(76.dp), background = Color(0xFFF2E7D8))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(product.productName, style = PantryTypography.titleLarge)
+                            Text(product.subtitle, color = PantryColors.Muted)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { onEvent(FoodDetailEvent.OnRemoveBarcodeClick(product.barcode)) }
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = PantryColors.Error)
+                            Text(" Rimuovi", color = PantryColors.Error, fontWeight = FontWeight.Bold)
+                        }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Close, contentDescription = null, tint = PantryColors.Error)
-                        Text(" Rimuovi", color = PantryColors.Error, fontWeight = FontWeight.Bold)
-                    }
+                }   
+            }   
+        }
+
+        SectionLabel("NOMI NELLE RICETTE")
+        if (state.recipeAliases.isEmpty()) {
+            PantryCard {
+                Text("Nessun alias ricetta", style = PantryTypography.titleMedium)
+                Text("Aggiungi nomi come milk, latte parzialmente scremato o simili.", color = PantryColors.Muted)
+            }
+        } else {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
+                state.recipeAliases.forEach { alias ->
+                    FoodChip(
+                        label = alias.alias,
+                        icon = Icons.Default.Close,
+                        selected = false,
+                        onClick = { onEvent(FoodDetailEvent.OnRemoveAliasClick(alias.id)) }
+                    )
                 }
             }
         }
 
-        SectionLabel("NOMI NELLE RICETTE")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
-            state.recipeAliases.forEach { alias ->
-                FoodChip(label = alias, icon = Icons.Default.Close, selected = alias == state.recipeAliases.firstOrNull())
-            }
-        }
-
         OutlinedTextField(
-            value = "",
-            onValueChange = {},
+            value = state.aliasDraft,
+            onValueChange = { onEvent(FoodDetailEvent.OnAliasDraftChange(it)) },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Aggiungi un nome...") },
             leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700) },
@@ -115,11 +134,13 @@ fun FoodLinksScreen(
                 unfocusedContainerColor = PantryColors.Card
             )
         )
-
-        PantryCard(containerColor = PantryColors.Green50) {
+        PantryCard(
+            containerColor = PantryColors.Green50,
+            onClick = { onEvent(FoodDetailEvent.OnAddAliasClick) }
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = PantryColors.Green700)
-                Text("Mapper e modifiche saranno attivi nel prossimo step.", color = PantryColors.Green700, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700)
+                Text("Aggiungi alias", color = PantryColors.Green700, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(104.dp))

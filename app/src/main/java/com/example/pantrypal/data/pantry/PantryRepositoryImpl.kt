@@ -8,11 +8,17 @@ import com.example.pantrypal.core.database.dao.FoodCategoryDao
 import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
 import com.example.pantrypal.core.database.entity.ExpiryLotEntity
 import com.example.pantrypal.core.database.entity.FoodCategoryEntity
+import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
+import com.example.pantrypal.core.util.TextNormalizer
+import com.example.pantrypal.domain.model.AddFoodCategorySelection
 import com.example.pantrypal.domain.model.CategoryOrigin
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
 import com.example.pantrypal.domain.model.FoodCategory
 import com.example.pantrypal.domain.model.FoodCategoryMatchSource
+import com.example.pantrypal.domain.model.FoodDetailDraft
 import com.example.pantrypal.domain.model.FoodDetailData
+import com.example.pantrypal.domain.model.IngredientRelationType
+import com.example.pantrypal.domain.model.LinkOrigin
 import com.example.pantrypal.domain.model.LotWithCategory
 import com.example.pantrypal.domain.model.PantryRow
 import com.example.pantrypal.domain.model.StorageLocation
@@ -32,7 +38,8 @@ class PantryRepositoryImpl @Inject constructor(
     private val foodCategoryDao: FoodCategoryDao,
     private val expiryLotDao: ExpiryLotDao,
     private val barcodeProductLinkDao: BarcodeProductLinkDao,
-    private val recipeIngredientLinkDao: RecipeIngredientLinkDao
+    private val recipeIngredientLinkDao: RecipeIngredientLinkDao,
+    private val textNormalizer: TextNormalizer
 ) : PantryRepository {
     override fun observePantryRows(filter: StorageLocationFilter): Flow<List<PantryRow>> {
         val location = filter.toStorageLocationOrNull()
@@ -44,7 +51,7 @@ class PantryRepositoryImpl @Inject constructor(
     }
 
     override fun observeFoodDetail(categoryId: Long): Flow<FoodDetailData?> {
-        val categoryFlow = flow { emit(foodCategoryDao.getById(categoryId)?.toDomain()) }
+        val categoryFlow = foodCategoryDao.observeById(categoryId).map { it?.toDomain() }
         val lotsFlow = expiryLotDao.observeActiveLotsForCategory(categoryId)
             .map { lots -> lots.map { it.toDomain() } }
         val barcodeLinksFlow = barcodeProductLinkDao.observeActiveLinksForCategory(categoryId)
@@ -67,8 +74,11 @@ class PantryRepositoryImpl @Inject constructor(
     override suspend fun getActiveLotsWithCategories(): List<LotWithCategory> =
         foodCategoryDao.getActiveLotsWithCategories().map { it.toDomain() }
 
+    override fun observeActiveLotsWithCategories(): Flow<List<LotWithCategory>> =
+        foodCategoryDao.observeActiveLotsWithCategories().map { lots -> lots.map { it.toDomain() } }
+
     override suspend fun searchFoodCategories(query: String, limit: Int): List<FoodCategory> {
-        val normalizedQuery = query.trim().lowercase()
+        val normalizedQuery = textNormalizer.normalizeFoodText(query)
         return if (normalizedQuery.isBlank()) {
             foodCategoryDao.getAllCategories(limit)
         } else {
@@ -77,9 +87,27 @@ class PantryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getFoodCategoryMatchSources(query: String, limit: Int): List<FoodCategoryMatchSource> {
-        val categories = searchFoodCategories(query, limit)
-        return categories.map { category ->
-            FoodCategoryMatchSource(category = category)
+        val normalizedQuery = textNormalizer.normalizeFoodText(query)
+        val categoryMatches = searchFoodCategories(query, limit)
+        val aliasMatches = if (normalizedQuery.isBlank()) {
+            emptyList()
+        } else {
+            recipeIngredientLinkDao.searchActiveLinkProjections(normalizedQuery, limit)
+        }
+        val categoryIds = (categoryMatches.map { it.id } + aliasMatches.map { it.categoryId }).distinct()
+        if (categoryIds.isEmpty()) return emptyList()
+
+        val categoriesById = (categoryMatches + foodCategoryDao.getByIds(categoryIds).map { it.toDomain() })
+            .distinctBy { it.id }
+            .associateBy { it.id }
+        val aliasesByCategory = recipeIngredientLinkDao.getActiveLinksForCategories(categoryIds)
+            .map { it.toDomain() }
+            .groupBy { it.categoryId }
+
+        return categoryIds.mapNotNull { categoryId ->
+            categoriesById[categoryId]?.let { category ->
+                FoodCategoryMatchSource(category = category, aliases = aliasesByCategory[categoryId].orEmpty())
+            }
         }
     }
 
@@ -106,6 +134,74 @@ class PantryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun saveAddedFood(
+        categorySelection: AddFoodCategorySelection,
+        expirationDate: LocalDate,
+        quantity: Int
+    ): Long {
+        val now = Instant.now()
+        return database.withTransaction {
+            val categoryId = when (categorySelection) {
+                is AddFoodCategorySelection.Existing -> categorySelection.categoryId
+                is AddFoodCategorySelection.New -> {
+                    val normalizedName = textNormalizer.normalizeFoodText(categorySelection.name)
+                    val existing = foodCategoryDao.getByNormalizedName(normalizedName)
+                    existing?.id ?: foodCategoryDao.insert(
+                        FoodCategoryEntity(
+                            name = categorySelection.name.trim(),
+                            normalizedName = normalizedName,
+                            defaultStorageLocation = categorySelection.storageLocation,
+                            defaultPerishability = categorySelection.perishability,
+                            imageUri = null,
+                            origin = CategoryOrigin.USER,
+                            createdAt = now,
+                            updatedAt = now,
+                            lastUsedAt = null
+                        )
+                    )
+                }
+            }
+            upsertExpiryLotInTransaction(categoryId, expirationDate, quantity, now)
+            categoryId
+        }
+    }
+
+    override suspend fun saveFoodDetailChanges(draft: FoodDetailDraft) {
+        val now = Instant.now()
+        database.withTransaction {
+            val currentCategory = foodCategoryDao.getById(draft.categoryId) ?: return@withTransaction
+            val normalizedName = textNormalizer.normalizeFoodText(draft.name)
+            foodCategoryDao.updateCategoryDetails(
+                categoryId = draft.categoryId,
+                name = draft.name.trim(),
+                normalizedName = normalizedName,
+                storageLocation = draft.storageLocation,
+                perishability = draft.perishability,
+                imageUri = currentCategory.imageUri,
+                updatedAt = now
+            )
+
+            val finalLotsByDate = draft.lots
+                .filter { it.quantity > 0 }
+                .groupBy { it.expirationDate }
+                .mapValues { (_, lots) -> lots.sumOf { it.quantity } }
+
+            expiryLotDao.deleteAllLotsForCategory(draft.categoryId)
+            finalLotsByDate.forEach { (date, quantity) ->
+                expiryLotDao.insert(
+                    ExpiryLotEntity(
+                        categoryId = draft.categoryId,
+                        expirationDate = date,
+                        quantity = quantity,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            }
+            foodCategoryDao.markUsed(draft.categoryId, now)
+        }
+    }
+
     override suspend fun upsertExpiryLot(
         categoryId: Long,
         expirationDate: LocalDate,
@@ -114,21 +210,7 @@ class PantryRepositoryImpl @Inject constructor(
         if (quantityDelta <= 0) return
         val now = Instant.now()
         database.withTransaction {
-            val existing = expiryLotDao.getLotByCategoryAndDate(categoryId, expirationDate)
-            if (existing == null) {
-                expiryLotDao.insert(
-                    ExpiryLotEntity(
-                        categoryId = categoryId,
-                        expirationDate = expirationDate,
-                        quantity = quantityDelta,
-                        createdAt = now,
-                        updatedAt = now
-                    )
-                )
-            } else {
-                expiryLotDao.update(existing.copy(quantity = existing.quantity + quantityDelta, updatedAt = now))
-            }
-            foodCategoryDao.markUsed(categoryId, now)
+            upsertExpiryLotInTransaction(categoryId, expirationDate, quantityDelta, now)
         }
     }
 
@@ -146,6 +228,73 @@ class PantryRepositoryImpl @Inject constructor(
             expiryLotDao.deleteZeroQuantityLots()
             true
         }
+    }
+
+    override suspend fun addRecipeIngredientAlias(categoryId: Long, aliasOriginal: String, language: String?): Long {
+        val normalizedAlias = textNormalizer.normalizeFoodText(aliasOriginal)
+        if (normalizedAlias.isBlank()) return 0L
+        val now = Instant.now()
+        return database.withTransaction {
+            val existing = recipeIngredientLinkDao.getLinkByAliasAndCategory(normalizedAlias, categoryId)
+            if (existing != null) {
+                recipeIngredientLinkDao.upsert(
+                    existing.copy(
+                        aliasOriginal = aliasOriginal.trim(),
+                        language = language?.takeIf { it.isNotBlank() },
+                        relationType = IngredientRelationType.EXACT,
+                        origin = LinkOrigin.USER,
+                        isActive = true,
+                        updatedAt = now
+                    )
+                )
+            } else {
+                recipeIngredientLinkDao.upsert(
+                    RecipeIngredientLinkEntity(
+                        categoryId = categoryId,
+                        aliasOriginal = aliasOriginal.trim(),
+                        normalizedAlias = normalizedAlias,
+                        language = language?.takeIf { it.isNotBlank() },
+                        externalIngredientId = null,
+                        relationType = IngredientRelationType.EXACT,
+                        origin = LinkOrigin.USER,
+                        isActive = true,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            }
+        }
+    }
+
+    override suspend fun removeRecipeIngredientAlias(linkId: Long) {
+        recipeIngredientLinkDao.deleteById(linkId)
+    }
+
+    override suspend fun deactivateBarcodeLink(barcode: String) {
+        barcodeProductLinkDao.deactivateByBarcode(barcode, Instant.now())
+    }
+
+    private suspend fun upsertExpiryLotInTransaction(
+        categoryId: Long,
+        expirationDate: LocalDate,
+        quantityDelta: Int,
+        now: Instant
+    ) {
+        val existing = expiryLotDao.getLotByCategoryAndDate(categoryId, expirationDate)
+        if (existing == null) {
+            expiryLotDao.insert(
+                ExpiryLotEntity(
+                    categoryId = categoryId,
+                    expirationDate = expirationDate,
+                    quantity = quantityDelta,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+        } else {
+            expiryLotDao.update(existing.copy(quantity = existing.quantity + quantityDelta, updatedAt = now))
+        }
+        foodCategoryDao.markUsed(categoryId, now)
     }
 
     private fun StorageLocationFilter.toStorageLocationOrNull(): StorageLocation? =

@@ -26,12 +26,21 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,14 +54,51 @@ import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
 import com.example.pantrypal.core.designsystem.Stepper
 import com.example.pantrypal.domain.model.PerishabilityType
+import com.example.pantrypal.domain.model.SaveAddedFoodValidationError
 import com.example.pantrypal.domain.model.StorageLocation
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManualAddScreen(
     state: ManualAddUiState,
     onEvent: (ManualAddEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.expirationDate?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            onEvent(ManualAddEvent.OnExpirationDateSelected(millis.toLocalDate()))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Conferma")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Annulla")
+                }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -88,6 +134,9 @@ fun ManualAddScreen(
                 unfocusedContainerColor = PantryColors.Card
             )
         )
+        if (SaveAddedFoodValidationError.CATEGORY_REQUIRED in state.validationErrors) {
+            Text("Seleziona un alimento", color = PantryColors.Error, style = PantryTypography.labelLarge)
+        }
 
         Text("Scegli l'alimento corrispondente o creane uno nuovo", color = PantryColors.Muted)
         Row(
@@ -140,38 +189,60 @@ fun ManualAddScreen(
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel("SCADENZE - ${state.lots.size} AGGIUNTA")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700)
-                Text("Aggiungi", color = PantryColors.Green700, style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-        }
+        SectionLabel("SCADENZA")
 
-        state.lots.forEach { lot ->
-            PantryCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-                    Icon(
-                        Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(58.dp)
-                            .background(PantryColors.Green50, RoundedCornerShape(16.dp))
-                            .padding(14.dp),
-                        tint = PantryColors.Green700
+        PantryCard {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(58.dp)
+                        .background(PantryColors.Green50, RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    tint = PantryColors.Green700
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        state.expirationDate?.format(DateFormatter) ?: "Scegli data",
+                        style = PantryTypography.titleLarge
                     )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(lot.dateLabel, style = PantryTypography.titleLarge)
-                        Text(lot.expirationLabel, color = PantryColors.WarningText, fontWeight = FontWeight.Bold)
+                    Text(
+                        state.expirationDate?.toRelativeLabel().orEmpty(),
+                        color = PantryColors.WarningText,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (SaveAddedFoodValidationError.DATE_REQUIRED in state.validationErrors) {
+                        Text("Seleziona una data", color = PantryColors.Error, style = PantryTypography.labelLarge)
                     }
-                    Stepper(value = lot.quantity, onMinus = { }, onPlus = { })
                 }
+                Button(
+                    onClick = { showDatePicker = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Data")
+                }
+            }
+            Spacer(Modifier.height(PantrySpacing.lg))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Text("Quantita", style = PantryTypography.titleMedium)
+                    if (SaveAddedFoodValidationError.QUANTITY_INVALID in state.validationErrors) {
+                        Text("Quantita non valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
+                    }
+                }
+                Stepper(
+                    value = state.quantity,
+                    onMinus = { onEvent(ManualAddEvent.OnQuantityMinus) },
+                    onPlus = { onEvent(ManualAddEvent.OnQuantityPlus) }
+                )
             }
         }
 
         Button(
             onClick = { onEvent(ManualAddEvent.OnSaveClick) },
-            enabled = state.canSave,
+            enabled = !state.isSaving,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp),
@@ -179,7 +250,7 @@ fun ManualAddScreen(
             shape = RoundedCornerShape(18.dp)
         ) {
             Icon(Icons.Default.Check, contentDescription = null)
-            Text(" Salva alimento", style = PantryTypography.titleMedium)
+            Text(if (state.isSaving) " Salvataggio..." else " Salva alimento", style = PantryTypography.titleMedium)
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -227,3 +298,21 @@ private val FoodSuggestionUi.icon: ImageVector?
         storageLocation == StorageLocation.PANTRY -> Icons.Default.Inventory2
         else -> Icons.Default.Restaurant
     }
+
+private val DateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ITALIAN)
+
+private fun Long.toLocalDate(): LocalDate =
+    Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
+
+private fun LocalDate.toRelativeLabel(): String {
+    val days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), this).toInt()
+    return when {
+        days < 0 -> "scaduta"
+        days == 0 -> "oggi"
+        days == 1 -> "tra 1 giorno"
+        days < 30 -> "tra $days giorni"
+        days < 60 -> "tra 1 mese"
+        else -> "tra ${days / 30} mesi"
+    }
+}

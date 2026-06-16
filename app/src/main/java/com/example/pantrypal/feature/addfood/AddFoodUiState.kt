@@ -1,7 +1,9 @@
 package com.example.pantrypal.feature.addfood
 
 import com.example.pantrypal.domain.model.PerishabilityType
+import com.example.pantrypal.domain.model.SaveAddedFoodValidationError
 import com.example.pantrypal.domain.model.StorageLocation
+import java.time.LocalDate
 
 data class ScanUiState(
     val isReading: Boolean = true,
@@ -10,26 +12,23 @@ data class ScanUiState(
 )
 
 data class ManualAddUiState(
-    val query: String = "Pollo fritto",
-    val selectedSuggestion: FoodSuggestionUi? = sampleSuggestions.first(),
-    val suggestions: List<FoodSuggestionUi> = sampleSuggestions,
+    val query: String = "",
+    val selectedSuggestion: FoodSuggestionUi? = null,
+    val suggestions: List<FoodSuggestionUi> = emptyList(),
     val perishability: PerishabilityType = PerishabilityType.FRESH,
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,
-    val lots: List<ManualLotUi> = listOf(ManualLotUi("20 Giu 2026", 1, "tra 7 giorni")),
-    val canSave: Boolean = true
+    val expirationDate: LocalDate? = null,
+    val quantity: Int = 1,
+    val validationErrors: Set<SaveAddedFoodValidationError> = emptySet(),
+    val isSaving: Boolean = false
 )
 
 data class FoodSuggestionUi(
     val id: Long?,
     val label: String,
     val storageLocation: StorageLocation?,
+    val perishability: PerishabilityType?,
     val isCreateNew: Boolean = false
-)
-
-data class ManualLotUi(
-    val dateLabel: String,
-    val quantity: Int,
-    val expirationLabel: String
 )
 
 sealed interface ScanEvent {
@@ -44,7 +43,9 @@ sealed interface ManualAddEvent {
     data class OnSuggestionSelected(val suggestion: FoodSuggestionUi) : ManualAddEvent
     data class OnPerishabilitySelected(val perishability: PerishabilityType) : ManualAddEvent
     data class OnStorageLocationSelected(val storageLocation: StorageLocation) : ManualAddEvent
-    data object OnAddLotClick : ManualAddEvent
+    data class OnExpirationDateSelected(val date: LocalDate) : ManualAddEvent
+    data object OnQuantityMinus : ManualAddEvent
+    data object OnQuantityPlus : ManualAddEvent
     data object OnSaveClick : ManualAddEvent
 }
 
@@ -53,10 +54,3 @@ sealed interface AddFoodEffect {
     data object NavigateToManualAdd : AddFoodEffect
     data class ShowSnackbar(val message: String) : AddFoodEffect
 }
-
-private val sampleSuggestions = listOf(
-    FoodSuggestionUi(10, "Pollo fritto", StorageLocation.FRIDGE),
-    FoodSuggestionUi(11, "Pollo", StorageLocation.FRIDGE),
-    FoodSuggestionUi(12, "Cotoletta", StorageLocation.FREEZER),
-    FoodSuggestionUi(null, "Crea nuovo", null, isCreateNew = true)
-)

@@ -3,7 +3,9 @@ package com.example.pantrypal.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.settings.SettingsRepository
+import com.example.pantrypal.domain.model.HomeOverview
 import com.example.pantrypal.domain.model.StorageLocationFilter
+import com.example.pantrypal.domain.usecase.GetHomeOverviewUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -16,7 +18,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    settingsRepository: SettingsRepository
+    getHomeOverviewUseCase: GetHomeOverviewUseCase,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -26,8 +29,8 @@ class HomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            settingsRepository.observeSettings().collect { settings ->
-                _uiState.update { it.copy(username = settings.username.takeIf(String::isNotBlank)) }
+            getHomeOverviewUseCase().collect { overview ->
+                _uiState.value = overview.toUiState(_uiState.value)
             }
         }
     }
@@ -38,10 +41,30 @@ class HomeViewModel @Inject constructor(
                 is HomeEvent.OnExpiringFoodClick -> _effects.send(
                     HomeEffect.NavigateToPantry(StorageLocationFilter.ALL, event.categoryId)
                 )
-                is HomeEvent.OnStorageStatClick -> _effects.send(HomeEffect.NavigateToPantry(event.filter))
+                is HomeEvent.OnStorageStatClick -> {
+                    settingsRepository.updatePantryStorageFilter(event.filter)
+                    _effects.send(HomeEffect.NavigateToPantry(event.filter))
+                }
                 is HomeEvent.OnRecipeClick -> _effects.send(HomeEffect.NavigateToRecipeDetail(event.recipeId))
                 HomeEvent.OnFabClick -> _effects.send(HomeEffect.OpenAddChoiceSheet)
             }
         }
     }
 }
+
+private fun HomeOverview.toUiState(previous: HomeUiState): HomeUiState =
+    previous.copy(
+        username = username,
+        totalPackages = totalPackages,
+        fridgePackages = fridgePackages,
+        freezerPackages = freezerPackages,
+        pantryPackages = pantryPackages,
+        expiringFoods = expiringFoods.map {
+            HomeExpiringFoodUi(
+                categoryId = it.categoryId,
+                name = it.name,
+                expiringQuantity = it.expiringQuantity,
+                storageLocation = it.storageLocation
+            )
+        }
+    )

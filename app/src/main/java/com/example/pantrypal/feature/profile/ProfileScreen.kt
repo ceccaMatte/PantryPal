@@ -122,6 +122,7 @@ fun ProfileScreen(
                 icon = Icons.Default.Inventory2,
                 title = "Alimenti freschi",
                 days = state.freshNotificationDays,
+                enabled = state.expirationNotificationsEnabled,
                 onMinus = { onEvent(ProfileEvent.OnFreshDaysMinus) },
                 onPlus = { onEvent(ProfileEvent.OnFreshDaysPlus) }
             )
@@ -132,6 +133,7 @@ fun ProfileScreen(
                 days = state.longLifeNotificationDays,
                 iconBackground = Color(0xFFF4E8DB),
                 iconColor = PantryColors.Pantry,
+                enabled = state.expirationNotificationsEnabled,
                 onMinus = { onEvent(ProfileEvent.OnLongLifeDaysMinus) },
                 onPlus = { onEvent(ProfileEvent.OnLongLifeDaysPlus) }
             )
@@ -178,16 +180,17 @@ private fun NotificationDaysRow(
     days: Int,
     iconBackground: Color = PantryColors.Green50,
     iconColor: Color = PantryColors.Green700,
+    enabled: Boolean = true,
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
         IconBadge(icon, iconBackground, iconColor)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = PantryTypography.titleMedium)
-            Text("Avvisa N giorni prima", color = PantryColors.Muted)
+            Text(title, style = PantryTypography.titleMedium, color = if (enabled) PantryColors.Ink else PantryColors.Muted)
+            Text(if (enabled) "Avvisa N giorni prima" else "Notifiche disattivate", color = PantryColors.Muted)
         }
-        Stepper(value = days, onMinus = onMinus, onPlus = onPlus)
+        Stepper(value = days, onMinus = { if (enabled) onMinus() }, onPlus = { if (enabled) onPlus() })
     }
 }
 

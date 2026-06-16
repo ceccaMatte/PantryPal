@@ -6,11 +6,11 @@ import com.example.pantrypal.domain.model.StorageLocationFilter
 data class HomeUiState(
     val isOverviewLoading: Boolean = false,
     val username: String? = null,
-    val totalPackages: Int = 84,
-    val fridgePackages: Int = 24,
-    val freezerPackages: Int = 18,
-    val pantryPackages: Int = 42,
-    val expiringFoods: List<HomeExpiringFoodUi> = sampleExpiringFoods,
+    val totalPackages: Int = 0,
+    val fridgePackages: Int = 0,
+    val freezerPackages: Int = 0,
+    val pantryPackages: Int = 0,
+    val expiringFoods: List<HomeExpiringFoodUi> = emptyList(),
     val suggestedRecipes: List<HomeRecipeUi> = sampleHomeRecipes,
     val errorMessage: String? = null
 )
@@ -42,13 +42,6 @@ sealed interface HomeEffect {
     data object OpenAddChoiceSheet : HomeEffect
 }
 
-private val sampleExpiringFoods = listOf(
-    HomeExpiringFoodUi(1, "Latte", 2, StorageLocation.FRIDGE),
-    HomeExpiringFoodUi(2, "Pollo", 1, StorageLocation.FRIDGE),
-    HomeExpiringFoodUi(3, "Insalata", 3, StorageLocation.FRIDGE)
-)
-
 private val sampleHomeRecipes = listOf(
-    HomeRecipeUi("sample-pollo", "Pollo al Limone", "Usa: Pollo - Limone - Burro", "25 min"),
-    HomeRecipeUi("sample-insalata", "Insalata Ricca", "Usa: Insalata - Pomodori - Mais", "10 min")
+    HomeRecipeUi("sample-pollo", "Ricette non ancora disponibili", "Saranno calcolate dai tuoi ingredienti nel prossimo step", "--")
 )

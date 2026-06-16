@@ -17,6 +17,12 @@ interface FoodCategoryDao {
     @Query("SELECT * FROM food_categories WHERE id = :id")
     suspend fun getById(id: Long): FoodCategoryEntity?
 
+    @Query("SELECT * FROM food_categories WHERE id = :id")
+    fun observeById(id: Long): Flow<FoodCategoryEntity?>
+
+    @Query("SELECT * FROM food_categories WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<FoodCategoryEntity>
+
     @Query("SELECT * FROM food_categories WHERE normalizedName = :normalizedName LIMIT 1")
     suspend fun getByNormalizedName(normalizedName: String): FoodCategoryEntity?
 
@@ -56,6 +62,28 @@ interface FoodCategoryDao {
         """
     )
     suspend fun markUsed(categoryId: Long, usedAt: Instant)
+
+    @Query(
+        """
+        UPDATE food_categories
+        SET name = :name,
+            normalizedName = :normalizedName,
+            defaultStorageLocation = :storageLocation,
+            defaultPerishability = :perishability,
+            imageUri = :imageUri,
+            updatedAt = :updatedAt
+        WHERE id = :categoryId
+        """
+    )
+    suspend fun updateCategoryDetails(
+        categoryId: Long,
+        name: String,
+        normalizedName: String,
+        storageLocation: StorageLocation,
+        perishability: com.example.pantrypal.domain.model.PerishabilityType,
+        imageUri: String?,
+        updatedAt: Instant
+    )
 
     @Query(
         """
@@ -116,6 +144,25 @@ interface FoodCategoryDao {
         """
     )
     suspend fun getActiveLotsWithCategories(): List<LotWithCategoryProjection>
+
+    @Query(
+        """
+        SELECT
+            el.id AS lotId,
+            fc.id AS categoryId,
+            fc.name AS categoryName,
+            fc.normalizedName AS normalizedName,
+            fc.defaultStorageLocation AS storageLocation,
+            fc.defaultPerishability AS perishability,
+            el.expirationDate AS expirationDate,
+            el.quantity AS quantity
+        FROM expiry_lots el
+        INNER JOIN food_categories fc ON fc.id = el.categoryId
+        WHERE el.quantity > 0
+        ORDER BY el.expirationDate ASC, fc.name ASC
+        """
+    )
+    fun observeActiveLotsWithCategories(): Flow<List<LotWithCategoryProjection>>
 
     @Query(
         """

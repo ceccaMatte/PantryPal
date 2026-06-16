@@ -2,22 +2,28 @@ package com.example.pantrypal.feature.pantry
 
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocation
+import java.time.LocalDate
 
 data class FoodDetailUiState(
     val categoryId: Long = 1L,
-    val name: String = "Uova Fresche",
-    val totalQuantity: Int = 3,
+    val name: String = "",
+    val totalQuantity: Int = 0,
     val updatedLabel: String = "aggiornato oggi",
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,
     val perishability: PerishabilityType = PerishabilityType.FRESH,
-    val lots: List<FoodLotUi> = sampleLots,
-    val scannedProducts: List<ProductLinkUi> = sampleProducts,
-    val recipeAliases: List<String> = sampleAliases,
-    val isLoading: Boolean = false
+    val lots: List<FoodLotUi> = emptyList(),
+    val scannedProducts: List<ProductLinkUi> = emptyList(),
+    val recipeAliases: List<RecipeAliasUi> = emptyList(),
+    val aliasDraft: String = "",
+    val isLoading: Boolean = false,
+    val isDirty: Boolean = false,
+    val isSaving: Boolean = false,
+    val errorMessage: String? = null
 )
 
 data class FoodLotUi(
     val id: Long,
+    val expirationDate: LocalDate,
     val dateLabel: String,
     val expirationLabel: String,
     val quantity: Int,
@@ -30,12 +36,27 @@ data class ProductLinkUi(
     val subtitle: String
 )
 
+data class RecipeAliasUi(
+    val id: Long,
+    val alias: String,
+    val language: String?
+)
+
 sealed interface FoodDetailEvent {
     data object OnBackClick : FoodDetailEvent
-    data object OnAddLotClick : FoodDetailEvent
+    data class OnNameChange(val value: String) : FoodDetailEvent
+    data class OnStorageLocationSelected(val storageLocation: StorageLocation) : FoodDetailEvent
+    data class OnPerishabilitySelected(val perishability: PerishabilityType) : FoodDetailEvent
+    data class OnAddLotWithDate(val date: LocalDate) : FoodDetailEvent
+    data class OnLotDateSelected(val lotId: Long, val date: LocalDate) : FoodDetailEvent
+    data object OnSaveClick : FoodDetailEvent
     data object OnManageLinksClick : FoodDetailEvent
     data class OnLotMinusClick(val lotId: Long) : FoodDetailEvent
     data class OnLotPlusClick(val lotId: Long) : FoodDetailEvent
+    data class OnAliasDraftChange(val value: String) : FoodDetailEvent
+    data object OnAddAliasClick : FoodDetailEvent
+    data class OnRemoveAliasClick(val aliasId: Long) : FoodDetailEvent
+    data class OnRemoveBarcodeClick(val barcode: String) : FoodDetailEvent
 }
 
 sealed interface FoodDetailEffect {
@@ -43,16 +64,3 @@ sealed interface FoodDetailEffect {
     data object NavigateToLinks : FoodDetailEffect
     data class ShowSnackbar(val message: String) : FoodDetailEffect
 }
-
-private val sampleLots = listOf(
-    FoodLotUi(1, "15 Ottobre 2025", "Scaduta", 1, isExpired = true),
-    FoodLotUi(2, "19 Ottobre 2025", "tra 4 giorni", 1),
-    FoodLotUi(3, "02 Novembre 2025", "tra 3 settimane", 1)
-)
-
-private val sampleProducts = listOf(
-    ProductLinkUi("800001", "Chicken Nuggets Findus", "Riconosciuto come Pollo fritto"),
-    ProductLinkUi("800002", "Crispy Chicken Coop", "Riconosciuto come Pollo fritto")
-)
-
-private val sampleAliases = listOf("pollo fritto", "fried chicken", "breaded chicken", "chicken nuggets")

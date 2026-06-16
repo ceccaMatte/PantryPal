@@ -1,6 +1,7 @@
 package com.example.pantrypal.feature.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pantrypal.core.designsystem.EmptyState
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
@@ -53,11 +55,7 @@ fun HomeScreen(
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Inventory2, contentDescription = null, tint = PantryColors.Green600)
-                Text(
-                    text = " PantryPal",
-                    style = PantryTypography.titleLarge,
-                    color = PantryColors.Green600
-                )
+                Text(" PantryPal", style = PantryTypography.titleLarge, color = PantryColors.Green600)
             }
             Spacer(Modifier.height(PantrySpacing.sm))
             Text(
@@ -75,9 +73,7 @@ fun HomeScreen(
             ) {
                 FoodChip(
                     label = "${state.expiringFoods.sumOf { it.expiringQuantity }} articoli",
-                    icon = Icons.Default.WarningAmber,
-                    selected = false,
-                    badge = null
+                    icon = Icons.Default.WarningAmber
                 )
                 Text(
                     text = "OGGI",
@@ -91,48 +87,59 @@ fun HomeScreen(
             Spacer(Modifier.height(PantrySpacing.md))
             Text("In scadenza a breve - controllali ora", style = PantryTypography.titleMedium, color = PantryColors.InkSoft)
             Spacer(Modifier.height(PantrySpacing.md))
-            Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
-                state.expiringFoods.forEach {
-                    FoodChip(
-                        label = it.name,
-                        badge = "x${it.expiringQuantity}",
-                        onClick = { onEvent(HomeEvent.OnExpiringFoodClick(it.categoryId)) }
-                    )
+            if (state.expiringFoods.isEmpty()) {
+                Text("Nessun alimento in scadenza nelle soglie impostate", color = PantryColors.Muted)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
+                    state.expiringFoods.forEach {
+                        FoodChip(
+                            label = it.name,
+                            badge = "x${it.expiringQuantity}",
+                            onClick = { onEvent(HomeEvent.OnExpiringFoodClick(it.categoryId)) }
+                        )
+                    }
                 }
             }
         }
 
-        Text("Riepilogo Dispensa", style = PantryTypography.headlineMedium)
-        PantryCard(containerColor = PantryColors.Green900) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Box(
+        if (state.totalPackages == 0) {
+            EmptyState(
+                title = "Dispensa vuota",
+                message = "Usa il pulsante + per aggiungere il primo alimento."
+            )
+        } else {
+            Text("Riepilogo Dispensa", style = PantryTypography.headlineMedium)
+            PantryCard(containerColor = PantryColors.Green900) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
+                    }
+                    Spacer(Modifier.height(PantrySpacing.md))
+                    Text("${state.totalPackages} articoli", style = PantryTypography.displaySmall, color = Color.White)
+                    Text("TOTALE DISPENSA", style = PantryTypography.labelLarge, color = Color.White.copy(alpha = 0.7f))
+                }
+                Spacer(Modifier.height(PantrySpacing.xl))
+                Row(
                     modifier = Modifier
-                        .size(72.dp)
-                        .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .background(Color.White, RoundedCornerShape(18.dp))
+                        .padding(PantrySpacing.lg),
+                    horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
-                }
-                Spacer(Modifier.height(PantrySpacing.md))
-                Text("${state.totalPackages} articoli", style = PantryTypography.displaySmall, color = Color.White)
-                Text("TOTALE DISPENSA", style = PantryTypography.labelLarge, color = Color.White.copy(alpha = 0.7f))
-            }
-            Spacer(Modifier.height(PantrySpacing.xl))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(18.dp))
-                    .padding(PantrySpacing.lg),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                StorageStat("Frigo", state.fridgePackages, PantryColors.Green600) {
-                    onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.FRIDGE))
-                }
-                StorageStat("Freezer", state.freezerPackages, PantryColors.Freezer) {
-                    onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.FREEZER))
-                }
-                StorageStat("Dispensa", state.pantryPackages, PantryColors.Pantry) {
-                    onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.PANTRY))
+                    StorageStat("Frigo", state.fridgePackages, PantryColors.Green600) {
+                        onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.FRIDGE))
+                    }
+                    StorageStat("Freezer", state.freezerPackages, PantryColors.Freezer) {
+                        onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.FREEZER))
+                    }
+                    StorageStat("Dispensa", state.pantryPackages, PantryColors.Pantry) {
+                        onEvent(HomeEvent.OnStorageStatClick(StorageLocationFilter.PANTRY))
+                    }
                 }
             }
         }
@@ -140,8 +147,10 @@ fun HomeScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Ricette Suggerite", style = PantryTypography.headlineMedium)
             Text(
-                "DAI TUOI INGREDIENTI",
-                modifier = Modifier.background(PantryColors.Green50, RoundedCornerShape(12.dp)).padding(10.dp),
+                "NON DISPONIBILI",
+                modifier = Modifier
+                    .background(PantryColors.Green50, RoundedCornerShape(12.dp))
+                    .padding(10.dp),
                 color = PantryColors.Green700,
                 style = PantryTypography.labelLarge
             )
@@ -155,7 +164,10 @@ fun HomeScreen(
 
 @Composable
 private fun StorageStat(label: String, value: Int, color: Color, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
         Icon(Icons.Default.Kitchen, contentDescription = label, tint = color)
         Text("$value", style = PantryTypography.headlineMedium, color = PantryColors.Ink)
         Text(label.uppercase(), style = PantryTypography.labelLarge, color = PantryColors.Muted)
@@ -178,6 +190,7 @@ private fun RecipeSuggestionCard(recipe: HomeRecipeUi, onClick: () -> Unit) {
             }
             Button(
                 onClick = onClick,
+                enabled = false,
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700),
                 shape = RoundedCornerShape(24.dp)
             ) {

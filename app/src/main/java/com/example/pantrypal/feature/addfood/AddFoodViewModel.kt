@@ -4,6 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.domain.matching.FoodCategoryMatcher
+import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.SaveAddedFoodCommand
+import com.example.pantrypal.domain.model.SaveAddedFoodResult
+import com.example.pantrypal.domain.usecase.SaveAddedFoodUseCase
+import com.example.pantrypal.core.util.TextNormalizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -17,7 +22,9 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class AddFoodViewModel @Inject constructor(
     private val pantryRepository: PantryRepository,
-    private val foodCategoryMatcher: FoodCategoryMatcher
+    private val foodCategoryMatcher: FoodCategoryMatcher,
+    private val saveAddedFoodUseCase: SaveAddedFoodUseCase,
+    private val textNormalizer: TextNormalizer
 ) : ViewModel() {
     private val _scanState = MutableStateFlow(ScanUiState())
     val scanState: StateFlow<ScanUiState> = _scanState.asStateFlow()
@@ -27,6 +34,10 @@ class AddFoodViewModel @Inject constructor(
 
     private val _effects = Channel<AddFoodEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
+
+    init {
+        viewModelScope.launch { refreshSuggestions("") }
+    }
 
     fun onScanEvent(event: ScanEvent) {
         viewModelScope.launch {
@@ -43,37 +54,112 @@ class AddFoodViewModel @Inject constructor(
             when (event) {
                 ManualAddEvent.OnBackClick -> _effects.send(AddFoodEffect.FinishAddFlow)
                 is ManualAddEvent.OnQueryChange -> {
-                    _manualState.update { it.copy(query = event.value) }
+                    _manualState.update {
+                        it.copy(
+                            query = event.value,
+                            selectedSuggestion = null,
+                            validationErrors = emptySet()
+                        )
+                    }
                     refreshSuggestions(event.value)
                 }
-                is ManualAddEvent.OnSuggestionSelected -> _manualState.update { it.copy(selectedSuggestion = event.suggestion) }
+                is ManualAddEvent.OnSuggestionSelected -> _manualState.update {
+                    it.copy(
+                        selectedSuggestion = event.suggestion,
+                        storageLocation = event.suggestion.storageLocation ?: it.storageLocation,
+                        perishability = event.suggestion.perishability ?: it.perishability,
+                        validationErrors = it.validationErrors - com.example.pantrypal.domain.model.SaveAddedFoodValidationError.CATEGORY_REQUIRED
+                    )
+                }
                 is ManualAddEvent.OnPerishabilitySelected -> _manualState.update { it.copy(perishability = event.perishability) }
                 is ManualAddEvent.OnStorageLocationSelected -> _manualState.update { it.copy(storageLocation = event.storageLocation) }
-                ManualAddEvent.OnAddLotClick -> _effects.send(AddFoodEffect.ShowSnackbar("Nuova scadenza pronta per lo step successivo"))
-                ManualAddEvent.OnSaveClick -> _effects.send(AddFoodEffect.FinishAddFlow)
+                is ManualAddEvent.OnExpirationDateSelected -> _manualState.update {
+                    it.copy(
+                        expirationDate = event.date,
+                        validationErrors = it.validationErrors - com.example.pantrypal.domain.model.SaveAddedFoodValidationError.DATE_REQUIRED
+                    )
+                }
+                ManualAddEvent.OnQuantityMinus -> _manualState.update {
+                    it.copy(quantity = (it.quantity - 1).coerceAtLeast(0))
+                }
+                ManualAddEvent.OnQuantityPlus -> _manualState.update {
+                    it.copy(quantity = it.quantity + 1)
+                }
+                ManualAddEvent.OnSaveClick -> saveManualFood()
             }
         }
     }
 
     private suspend fun refreshSuggestions(query: String) {
-        if (query.isBlank()) {
-            _manualState.update { it.copy(suggestions = emptyList(), selectedSuggestion = null) }
-            return
-        }
         val sources = pantryRepository.getFoodCategoryMatchSources(query)
+        val sourceByCategoryId = sources.associateBy { it.category.id }
         val matches = foodCategoryMatcher.match(query, sources).map {
+            val source = sourceByCategoryId[it.categoryId]
             FoodSuggestionUi(
                 id = it.categoryId,
                 label = it.name,
-                storageLocation = null
+                storageLocation = source?.category?.defaultStorageLocation,
+                perishability = source?.category?.defaultPerishability
             )
         }
-        val createNew = FoodSuggestionUi(null, "Crea nuovo", null, isCreateNew = true)
+        val normalizedQuery = textNormalizer.normalizeFoodText(query)
+        val hasExactCategoryOrAlias = normalizedQuery.isNotBlank() && sources.any { source ->
+            source.category.normalizedName == normalizedQuery ||
+                source.aliases.any { it.normalizedAlias == normalizedQuery }
+        }
+        val createNew = FoodSuggestionUi(
+            id = null,
+            label = "Crea nuovo",
+            storageLocation = null,
+            perishability = null,
+            isCreateNew = true
+        )
         _manualState.update {
             it.copy(
-                suggestions = (matches + createNew).ifEmpty { listOf(createNew) },
-                selectedSuggestion = matches.firstOrNull() ?: it.selectedSuggestion
+                suggestions = if (!hasExactCategoryOrAlias && normalizedQuery.isNotBlank()) {
+                    matches + createNew
+                } else {
+                    matches
+                }
             )
+        }
+    }
+
+    private suspend fun saveManualFood() {
+        val state = _manualState.value
+        _manualState.update { it.copy(isSaving = true, validationErrors = emptySet()) }
+
+        val selection = when {
+            state.selectedSuggestion?.isCreateNew == true -> AddFoodCategorySelection.New(
+                name = state.query,
+                storageLocation = state.storageLocation,
+                perishability = state.perishability
+            )
+            state.selectedSuggestion?.id != null -> AddFoodCategorySelection.Existing(requireNotNull(state.selectedSuggestion.id))
+            else -> null
+        }
+
+        when (val result = saveAddedFoodUseCase(
+            SaveAddedFoodCommand(
+                categorySelection = selection,
+                expirationDate = state.expirationDate,
+                quantity = state.quantity,
+                storageLocation = state.storageLocation,
+                perishability = state.perishability
+            )
+        )) {
+            is SaveAddedFoodResult.Success -> {
+                _manualState.value = ManualAddUiState()
+                refreshSuggestions("")
+                _effects.send(AddFoodEffect.FinishAddFlow)
+            }
+            is SaveAddedFoodResult.ValidationError -> _manualState.update {
+                it.copy(isSaving = false, validationErrors = result.errors)
+            }
+            SaveAddedFoodResult.StorageError -> {
+                _manualState.update { it.copy(isSaving = false) }
+                _effects.send(AddFoodEffect.ShowSnackbar("Errore durante il salvataggio"))
+            }
         }
     }
 }

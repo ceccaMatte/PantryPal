@@ -38,7 +38,10 @@ class FoodCategoryMatcher @Inject constructor(
     fun shouldShowCreateNew(query: String, sources: List<FoodCategoryMatchSource>): Boolean {
         val normalizedQuery = textNormalizer.normalizeFoodText(query)
         if (normalizedQuery.isBlank()) return false
-        return sources.none { it.category.normalizedName == normalizedQuery }
+        return sources.none { source ->
+            source.category.normalizedName == normalizedQuery ||
+                source.aliases.any { it.normalizedAlias == normalizedQuery }
+        }
     }
 
     private fun FoodCategoryMatchSource.bestSuggestionFor(query: String): FoodCategorySuggestion? {
