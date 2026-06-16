@@ -1,8 +1,8 @@
-# PantryPal — Specifica Data Model aggiornata per matching molti-a-molti
+# PantryPal — Specifica Data Model finale aggiornata
 
 ## 1. Scopo del documento
 
-Questo documento definisce il data model di PantryPal.
+Questo documento definisce il data model finale di PantryPal.
 
 Il modello deve supportare:
 
@@ -10,7 +10,7 @@ Il modello deve supportare:
 - tracciamento di scadenze e quantità;
 - aggregazione delle confezioni per alimento interno e data di scadenza;
 - riconoscimento dei prodotti reali tramite barcode/Open Food Facts;
-- matching tra ingredienti delle ricette e alimenti interni;
+- matching globale tra label degli ingredienti ricetta e alimenti interni;
 - correzione dei collegamenti sbagliati;
 - creazione runtime di nuovi alimenti interni;
 - salvataggio locale delle ricette preferite;
@@ -22,7 +22,7 @@ Il punto centrale del modello è separare tre concetti diversi:
 Prodotto reale acquistato ≠ Alimento interno PantryPal ≠ Ingrediente ricetta API
 ```
 
-Tutti e tre devono convergere su una base comune:
+Tutti e tre convergono su una base comune:
 
 ```text
 FoodCategory / CategoriaAlimentare
@@ -30,9 +30,9 @@ FoodCategory / CategoriaAlimentare
 
 ---
 
-## 2. Concetto centrale: CategoriaAlimentare
+## 2. Concetto centrale: FoodCategory / CategoriaAlimentare
 
-La `CategoriaAlimentare` rappresenta l’alimento interno usato da PantryPal.
+La `FoodCategory` rappresenta l’alimento interno usato da PantryPal.
 
 Esempi:
 
@@ -83,14 +83,14 @@ La categoria interna è usata per:
 ```text
 Barcode / prodotto reale comprato
         ↓
-CategoriaAlimentare interna
+FoodCategory interna
         ↑
-Ingrediente ricetta API
+Label ingrediente ricetta
 ```
 
 Il prodotto reale acquistato arriva da barcode/Open Food Facts.
 
-L’ingrediente ricetta arriva da Spoonacular o Edamam.
+L’ingrediente ricetta arriva dall’unica API ricette scelta dopo i test.
 
 La dispensa confronta solo categorie interne.
 
@@ -98,44 +98,95 @@ Esempio:
 
 ```text
 Barcode: Chicken Nuggets Findus
-→ CategoriaAlimentare: Pollo fritto
+→ FoodCategory: Pollo fritto
 
-Ingrediente ricetta: fried chicken
-→ CategoriaAlimentare: Pollo fritto
+Label ingrediente ricetta: fried chicken
+→ FoodCategory: Pollo fritto
 
 Dispensa:
 Pollo fritto, scadenza 20/07, quantità 2
 ```
 
-A questo punto il confronto ricetta/dispensa avviene tramite una relazione molti-a-molti:
+Il confronto ricetta/dispensa non usa barcode e non usa prodotti commerciali.
+
+Il confronto usa questo percorso:
 
 ```text
-IngredienteRicetta
-    └── RecipeIngredientMatch → una o più CategoriaAlimentare
-
-LottoScadenza
-    └── CategoriaAlimentare
+Ingrediente ricetta
+→ normalizedName
+→ RecipeIngredientLink attivi
+→ FoodCategory compatibili
+→ ExpiryLot attivi
+→ In dispensa / Da comprare
 ```
 
 Un ingrediente ricetta è considerato “in dispensa” se almeno una delle categorie interne compatibili ha un lotto attivo con quantità maggiore di 0.
 
 ---
 
-## 4. Storage scelto
+## 4. Vincolo importante: ricetta salvata ≠ mapping ingrediente
+
+La ricetta è un contenuto:
+
+```text
+titolo
+descrizione
+immagine
+tempo
+porzioni
+ingredienti con quantità
+```
+
+Questi dati vengono salvati in Room solo se l’utente mette like alla ricetta.
+
+Il mapping tra label ingrediente e alimento interno, invece, è globale e persistente.
+
+Esempi:
+
+```text
+pasta → Pasta
+olio d'oliva → Olio
+fried chicken → Pollo fritto
+```
+
+Questi link devono restare salvati anche se la ricetta da cui sono nati non viene salvata tra i preferiti.
+
+Motivo: lo stesso ingrediente può comparire in tante ricette diverse.
+
+Quindi:
+
+```text
+FavoriteRecipeEntity / RecipeIngredientEntity
+```
+
+rappresentano dati della ricetta preferita.
+
+```text
+RecipeIngredientLinkEntity
+```
+
+rappresenta il dizionario globale degli ingredienti riconosciuti dall’app.
+
+---
+
+## 5. Storage scelto
 
 ### Room
 
 In Room vengono salvati i dati strutturali dell’app:
 
 ```text
-CategoriaAlimentare
+FoodCategory
 BarcodeProductLink
 RecipeIngredientLink
 ExpiryLot
 FavoriteRecipe
 RecipeIngredient
-RecipeIngredientMatch
 ```
+
+Non esiste più una tabella persistente `RecipeIngredientMatchEntity`.
+
+Il match della singola ricetta viene calcolato a runtime usando `RecipeIngredientLinkEntity`.
 
 ### DataStore
 
@@ -149,7 +200,7 @@ Motivo: le impostazioni sono preferenze semplici chiave-valore e non richiedono 
 
 ---
 
-## 5. Entity: CategoriaAlimentare
+## 6. Entity: FoodCategory
 
 Nome Kotlin consigliato:
 
@@ -184,7 +235,7 @@ data class FoodCategoryEntity(
 
     val imageUri: String?,
 
-    val source: FoodCategorySource,
+    val origin: CategoryOrigin,
 
     val createdAt: Instant,
     val updatedAt: Instant,
@@ -202,7 +253,7 @@ data class FoodCategoryEntity(
 | `defaultStorageLocation` | Luogo predefinito: frigo/freezer/dispensa |
 | `defaultPerishability` | Tipo di deperibilità: fresco/lunga conservazione |
 | `imageUri` | Immagine scelta o salvata localmente, opzionale |
-| `source` | Origine della categoria: seed, utente, suggerita |
+| `origin` | Origine della categoria: seed o utente |
 | `createdAt` | Data creazione |
 | `updatedAt` | Ultimo aggiornamento |
 | `lastUsedAt` | Ultimo uso in inserimento/scansione/ricetta |
@@ -214,10 +265,13 @@ data class FoodCategoryEntity(
 - Una categoria senza lotti attivi resta nel database.
 - La categoria viene nascosta dalla dispensa se non ha quantità attive.
 - La categoria resta disponibile per autocomplete, barcode e ricette.
+- `origin` serve solo a distinguere categorie preinstallate da categorie create dall’utente.
+- In Aggiunta Manuale il campo di testo serve solo a filtrare/cercare; per salvare serve sempre una categoria selezionata tramite badge.
+- Una nuova categoria creata dall’utente viene scritta davvero in DB solo al salvataggio finale del form.
 
 ---
 
-## 6. Entity: BarcodeProductLink
+## 7. Entity: BarcodeProductLink
 
 Nome Kotlin consigliato:
 
@@ -228,7 +282,7 @@ BarcodeProductLinkEntity
 Questa entity rappresenta il collegamento:
 
 ```text
-barcode / prodotto reale comprato → CategoriaAlimentare
+barcode / prodotto reale comprato → FoodCategory
 ```
 
 Esempio:
@@ -261,7 +315,7 @@ data class BarcodeProductLinkEntity(
 
     val categoryId: Long,
 
-    val productName: String?,
+    val productName: String,
     val genericName: String?,
     val brand: String?,
     val quantityLabel: String?,
@@ -271,10 +325,7 @@ data class BarcodeProductLinkEntity(
     val rawCategoryTags: String?,
     val rawFoodGroupTags: String?,
 
-    val source: LinkSource,
-    val confidence: MatchConfidence,
-
-    val isUserVerified: Boolean,
+    val origin: LinkOrigin,
     val isActive: Boolean,
 
     val createdAt: Instant,
@@ -294,11 +345,9 @@ data class BarcodeProductLinkEntity(
 | `brand` | Marca |
 | `quantityLabel` | Formato commerciale, es. `1L`, `500g` |
 | `imageUrl` | Immagine prodotto da API |
-| `rawCategoryTags` | Tag categoria API salvati per debug/matching futuro |
-| `rawFoodGroupTags` | Tag food group API salvati per debug/matching futuro |
-| `source` | Origine del collegamento |
-| `confidence` | Confidenza del match |
-| `isUserVerified` | True se confermato/corretto dall’utente |
+| `rawCategoryTags` | Tag categoria API salvati per matching/debug futuro |
+| `rawFoodGroupTags` | Tag food group API salvati per matching/debug futuro |
+| `origin` | Origine del collegamento: seed, automatico o utente |
 | `isActive` | False se il collegamento è stato disattivato |
 | `lastUsedAt` | Ultima scansione/uso |
 
@@ -310,10 +359,14 @@ data class BarcodeProductLinkEntity(
 - Il barcode serve solo per riconoscere automaticamente la categoria.
 - Se l’utente corregge un barcode, il vecchio collegamento non deve più essere usato.
 - Per evitare associazioni sbagliate che ricompaiono, i link corretti/rimossi possono essere mantenuti con `isActive = false`.
+- Non si salva `confidence` nel DB: eventuali score servono solo a runtime per ordinare suggerimenti.
+- Non si salvano link barcode parziali.
+- Se il barcode non è riconosciuto da Open Food Facts, il successivo inserimento è trattato come manuale puro e non crea `BarcodeProductLink`.
+- Un `BarcodeProductLink` viene creato solo se esistono dati prodotto validi e una categoria selezionata dall’utente.
 
 ---
 
-## 7. Entity: RecipeIngredientLink
+## 8. Entity: RecipeIngredientLink
 
 Nome Kotlin consigliato:
 
@@ -321,20 +374,29 @@ Nome Kotlin consigliato:
 RecipeIngredientLinkEntity
 ```
 
-Questa entity rappresenta il collegamento:
+Questa entity rappresenta il dizionario globale:
 
 ```text
-nome ingrediente ricetta / id ingrediente API → CategoriaAlimentare
+label ingrediente ricetta / id ingrediente API → FoodCategory
 ```
 
-Esempio:
+Esempi:
 
 ```text
 olive oil → Olio
 extra virgin olive oil → Olio
 spaghetti → Pasta
 fried chicken → Pollo fritto
+pollo → Petto di pollo
+pollo → Cosce di pollo
+pollo → Pollo campese
 ```
+
+Questa tabella supporta relazioni molti-a-molti.
+
+Lo stesso alias può puntare a più categorie interne compatibili.
+
+La stessa categoria interna può essere raggiunta da più alias diversi.
 
 ### Campi
 
@@ -352,7 +414,8 @@ fried chicken → Pollo fritto
     indices = [
         Index(value = ["categoryId"]),
         Index(value = ["normalizedAlias"]),
-        Index(value = ["sourceApi", "externalIngredientId"])
+        Index(value = ["externalIngredientId"]),
+        Index(value = ["normalizedAlias", "categoryId"], unique = true)
     ]
 )
 data class RecipeIngredientLinkEntity(
@@ -366,13 +429,11 @@ data class RecipeIngredientLinkEntity(
 
     val language: String?,
 
-    val sourceApi: RecipeSource?,
     val externalIngredientId: String?,
 
-    val source: LinkSource,
-    val confidence: MatchConfidence,
+    val relationType: IngredientRelationType,
 
-    val isUserVerified: Boolean,
+    val origin: LinkOrigin,
     val isActive: Boolean,
 
     val createdAt: Instant,
@@ -388,30 +449,30 @@ data class RecipeIngredientLinkEntity(
 | `aliasOriginal` | Nome ingrediente come mostrabile all’utente/API |
 | `normalizedAlias` | Nome normalizzato usato per matching |
 | `language` | Lingua, es. `it`, `en`, opzionale |
-| `sourceApi` | API origine, es. Spoonacular/Edamam |
 | `externalIngredientId` | ID ingrediente API se disponibile |
-| `source` | Origine collegamento |
-| `confidence` | Confidenza |
-| `isUserVerified` | True se confermato/corretto dall’utente |
+| `relationType` | Tipo di relazione tra alias e categoria interna |
+| `origin` | Origine del collegamento: seed, automatico o utente |
 | `isActive` | False se disattivato |
 | `createdAt`, `updatedAt` | Audit locale |
 
 ### Regole
 
+- `RecipeIngredientLinkEntity` è indipendente dalle singole ricette.
+- I link ingrediente/alimento restano salvati anche se la ricetta da cui sono nati non è preferita.
 - Più nomi ricetta possono puntare alla stessa categoria interna.
 - Lo stesso nome ricetta può puntare a più categorie interne compatibili.
 - Questa tabella non rappresenta una funzione 1→1, ma una relazione molti-a-molti tra alias ricetta e categorie interne.
 - Esempio: `pollo` può essere compatibile con `Petto di pollo`, `Pollo campese`, `Cosce di pollo`.
 - Un nome ricetta può essere corretto dall’utente.
-- Quando l’utente sceglie “Ricorda per il futuro”, si crea o aggiorna uno o più `RecipeIngredientLink`.
-- Quando l’utente sceglie “Solo questa ricetta”, non è obbligatorio creare un link globale.
+- Ogni associazione manuale ingrediente/alimento viene sempre ricordata per il futuro.
+- Non esiste distinzione persistente tra “solo questa ricetta” e “ricorda per il futuro”.
 - I link disattivati non devono essere usati nei match automatici.
-- Le correzioni utente hanno priorità sui match automatici.
-- Se si introduce un vincolo unique, non deve essere solo su `normalizedAlias`, ma su `normalizedAlias + categoryId + sourceApi + externalIngredientId` dove applicabile.
+- I link `origin = USER` hanno priorità sui link automatici/seed quando si ordinano i suggerimenti.
+- Il vincolo `normalizedAlias + categoryId` evita duplicati inutili mantenendo il supporto molti-a-molti.
 
 ---
 
-## 8. Entity: ExpiryLot
+## 9. Entity: ExpiryLot
 
 Nome Kotlin consigliato:
 
@@ -428,7 +489,7 @@ LottoScadenza
 Questa entity rappresenta la quantità reale in dispensa aggregata per:
 
 ```text
-CategoriaAlimentare + dataScadenza
+FoodCategory + expirationDate
 ```
 
 Non rappresenta una singola confezione fisica.
@@ -499,29 +560,18 @@ Quando viene inserita una nuova quantità:
 stessa categoria + stessa scadenza → incrementa quantity
 ```
 
-Esempio:
-
-```text
-Latte, 20/07, +1
-Latte, 20/07, +1
-```
-
-risultato:
-
-```text
-Latte, 20/07, quantità 2
-```
-
 ### Regole quantità
 
 - `quantity` deve essere sempre maggiore di 0 nei lotti attivi.
 - Se un decremento porta `quantity` a 0, il lotto viene eliminato oppure considerato non più attivo.
 - La categoria interna resta nel DB anche se non ha più lotti.
 - Tutti i conteggi dell’app contano quantità di confezioni, non categorie.
+- Nel Dettaglio Alimento le modifiche ai lotti sono locali/draft finché l’utente non preme “Salva modifiche”.
+- Se tutti i lotti vengono portati a 0 nella UI, la pagina resta visibile; al salvataggio l’alimento sparisce dalla lista Dispensa ma la categoria resta nel DB.
 
 ---
 
-## 9. Entity: FavoriteRecipe
+## 10. Entity: FavoriteRecipe
 
 Nome Kotlin consigliato:
 
@@ -529,7 +579,9 @@ Nome Kotlin consigliato:
 FavoriteRecipeEntity
 ```
 
-Le ricette vengono recuperate da API esterna, ma in locale vengono salvate solo le preferite.
+Le ricette vengono recuperate da una sola API esterna scelta dopo i test.
+
+In locale vengono salvate solo le ricette preferite.
 
 ### Campi
 
@@ -537,7 +589,7 @@ Le ricette vengono recuperate da API esterna, ma in locale vengono salvate solo 
 @Entity(
     tableName = "favorite_recipes",
     indices = [
-        Index(value = ["source", "externalId"], unique = true)
+        Index(value = ["externalId"], unique = true)
     ]
 )
 data class FavoriteRecipeEntity(
@@ -545,7 +597,6 @@ data class FavoriteRecipeEntity(
     val id: Long = 0,
 
     val externalId: String,
-    val source: RecipeSource,
 
     val title: String,
     val description: String?,
@@ -564,13 +615,17 @@ data class FavoriteRecipeEntity(
 ### Regole
 
 - Solo le ricette preferite vengono salvate in Room.
-- `source + externalId` deve essere unico.
+- `externalId` deve essere unico.
 - Il like salva la ricetta senza conferma.
+- L’unlike rimuove la ricetta preferita e i suoi ingredienti salvati.
 - Il dettaglio ricetta può arrivare da API o da cache locale se preferita.
+- Non si salva `RecipeSource`, perché il progetto userà una sola sorgente ricette definitiva.
+- Offline sono consultabili solo le ricette preferite già salvate localmente.
+- La rimozione di una ricetta preferita non elimina i link globali `RecipeIngredientLinkEntity`.
 
 ---
 
-## 10. Entity: RecipeIngredient
+## 11. Entity: RecipeIngredient
 
 Nome Kotlin consigliato:
 
@@ -580,26 +635,9 @@ RecipeIngredientEntity
 
 Rappresenta un ingrediente all’interno di una ricetta preferita.
 
-Mantiene il dato originale dell’API, ma non contiene più direttamente `categoryId`.
+Mantiene il dato originale dell’API, ma non contiene direttamente `categoryId`.
 
-Motivo: lo stesso ingrediente ricetta può essere compatibile con più alimenti interni.
-
-Esempio:
-
-```text
-Ingrediente ricetta: pollo
-
-Categorie interne compatibili:
-- Petto di pollo
-- Pollo campese
-- Cosce di pollo
-```
-
-Quindi il collegamento con le categorie interne viene spostato nella tabella ponte:
-
-```text
-RecipeIngredientMatchEntity
-```
+Motivo: il collegamento tra label ingrediente e alimenti interni è globale e sta in `RecipeIngredientLinkEntity`.
 
 ### Campi
 
@@ -638,113 +676,15 @@ data class RecipeIngredientEntity(
 
 ### Regole
 
-- `RecipeIngredientEntity` conserva solo l’ingrediente originale della ricetta.
-- Non contiene più `categoryId`.
-- Il matching verso alimenti interni avviene tramite `RecipeIngredientMatchEntity`.
-- Un ingrediente può avere zero, uno o più match verso categorie interne.
-- Se non esistono match attivi, l’ingrediente viene considerato non riconosciuto.
+- `RecipeIngredientEntity` conserva solo l’ingrediente originale della ricetta preferita.
+- Non contiene `categoryId`.
+- Non contiene match verso categorie interne.
+- Il matching verso alimenti interni avviene a runtime tramite `RecipeIngredientLinkEntity`.
+- Un ingrediente può avere zero, uno o più link verso categorie interne compatibili.
+- Se non esistono link attivi, l’ingrediente viene considerato non riconosciuto.
 - Nel MVP il confronto controlla solo presenza/assenza, non quantità sufficiente.
 - Le quantità ricetta sono mantenute per visualizzazione.
-
----
-
-## 11. Entity: RecipeIngredientMatch
-
-Nome Kotlin consigliato:
-
-```kotlin
-RecipeIngredientMatchEntity
-```
-
-Questa entity rappresenta il collegamento tra un ingrediente specifico di una ricetta salvata e una categoria interna compatibile.
-
-È una tabella ponte molti-a-molti tra:
-
-```text
-RecipeIngredientEntity
-FoodCategoryEntity
-```
-
-Serve per supportare casi in cui un ingrediente generico può essere soddisfatto da più alimenti interni.
-
-Esempio:
-
-```text
-pollo → Petto di pollo
-pollo → Pollo campese
-pollo → Cosce di pollo
-```
-
-### Campi
-
-```kotlin
-@Entity(
-    tableName = "recipe_ingredient_matches",
-    foreignKeys = [
-        ForeignKey(
-            entity = RecipeIngredientEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["recipeIngredientId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = FoodCategoryEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["categoryId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
-    indices = [
-        Index(value = ["recipeIngredientId"]),
-        Index(value = ["categoryId"]),
-        Index(value = ["recipeIngredientId", "categoryId"], unique = true)
-    ]
-)
-data class RecipeIngredientMatchEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-
-    val recipeIngredientId: Long,
-    val categoryId: Long,
-
-    val relationType: IngredientRelationType,
-
-    val matchSource: MatchSource,
-    val confidence: MatchConfidence,
-
-    val isUserConfirmed: Boolean,
-    val isUserRejected: Boolean,
-    val isActive: Boolean,
-
-    val createdAt: Instant,
-    val updatedAt: Instant
-)
-```
-
-### Significato campi
-
-| Campo | Significato |
-|---|---|
-| `recipeIngredientId` | Ingrediente specifico della ricetta |
-| `categoryId` | Categoria interna compatibile |
-| `relationType` | Tipo di relazione: esatta, compatibile, generica |
-| `matchSource` | Origine del match |
-| `confidence` | Confidenza del match |
-| `isUserConfirmed` | True se confermato dall’utente |
-| `isUserRejected` | True se l’utente ha escluso questa categoria |
-| `isActive` | False se il match non deve più essere usato |
-| `createdAt`, `updatedAt` | Audit locale |
-
-### Regole
-
-- Un ingrediente ricetta può avere più categorie interne compatibili.
-- Una categoria interna può soddisfare più ingredienti ricetta.
-- Se almeno una categoria compatibile ha un lotto attivo, l’ingrediente viene mostrato come “In dispensa”.
-- Se più categorie compatibili sono presenti in dispensa, la UI può mostrare il match migliore o indicare “più alimenti compatibili”.
-- Se l’utente rifiuta un match, impostare `isUserRejected = true` e `isActive = false`.
-- Il vincolo `recipeIngredientId + categoryId` evita duplicati sulla stessa ricetta.
-- Questa tabella rappresenta il matching locale della singola ricetta.
-- I match globali e riutilizzabili restano in `RecipeIngredientLinkEntity`.
+- Per ricette non preferite, ingredienti e dettaglio restano solo in RAM.
 
 ---
 
@@ -768,7 +708,9 @@ data class UserSettings(
 
     val expirationNotificationsEnabled: Boolean,
     val freshNotificationDays: Int,
-    val longLifeNotificationDays: Int
+    val longLifeNotificationDays: Int,
+
+    val pantryStorageFilter: StorageLocationFilter
 )
 ```
 
@@ -778,6 +720,7 @@ data class UserSettings(
 - Il nome utente viene salvato all’uscita dal campo.
 - Se le notifiche sono disabilitate, i campi soglia vengono nascosti.
 - Le soglie sono separate per fresco e lunga conservazione.
+- Il filtro luogo della Dispensa è persistente.
 
 ---
 
@@ -793,6 +736,17 @@ enum class StorageLocation {
 }
 ```
 
+### StorageLocationFilter
+
+```kotlin
+enum class StorageLocationFilter {
+    ALL,
+    FRIDGE,
+    FREEZER,
+    PANTRY
+}
+```
+
 ### PerishabilityType
 
 ```kotlin
@@ -802,57 +756,22 @@ enum class PerishabilityType {
 }
 ```
 
-### FoodCategorySource
+### CategoryOrigin
 
 ```kotlin
-enum class FoodCategorySource {
+enum class CategoryOrigin {
     SEED,
-    USER_CREATED,
-    AUTO_SUGGESTED
+    USER
 }
 ```
 
-### RecipeSource
+### LinkOrigin
 
 ```kotlin
-enum class RecipeSource {
-    SPOONACULAR,
-    EDAMAM
-}
-```
-
-### LinkSource
-
-```kotlin
-enum class LinkSource {
+enum class LinkOrigin {
     SEED,
     AUTO,
-    USER_CREATED,
-    USER_CONFIRMED,
-    USER_CORRECTED
-}
-```
-
-### MatchConfidence
-
-```kotlin
-enum class MatchConfidence {
-    HIGH,
-    MEDIUM,
-    LOW
-}
-```
-
-### MatchSource
-
-```kotlin
-enum class MatchSource {
-    NONE,
-    BARCODE_LINK,
-    RECIPE_INGREDIENT_LINK,
-    TEXT_ALIAS,
-    USER_SELECTED,
-    AUTO_MATCH
+    USER
 }
 ```
 
@@ -888,52 +807,43 @@ enum class AppTheme {
 
 ---
 
-## 14. Nota sulla confidence
+## 14. Score e confidence fuori dal database
 
-La confidenza è salvata nel data model, ma non viene decisa dal data model.
-
-La confidenza viene calcolata dal livello di matching, non da Room.
-
-Il data model deve solo conservare il risultato:
+Il database non salva:
 
 ```text
-HIGH / MEDIUM / LOW
+MatchConfidence
+MatchSource
 ```
 
-Regola pratica prevista:
+La bontà di un match viene calcolata a runtime dal livello di matching.
+
+Lo score serve solo per:
+
+- ordinare i badge;
+- scegliere il primo valore precompilato;
+- scartare proposte assurde;
+- aiutare debug interni.
+
+Esempio runtime:
+
+```kotlin
+data class MatchCandidate(
+    val categoryId: Long,
+    val score: Int
+)
+```
+
+La UX resta sempre coerente:
 
 ```text
-HIGH
-- barcode già confermato dall’utente;
-- ingrediente già corretto/confermato dall’utente;
-- match esatto su alias seed affidabile;
-- match esatto su externalIngredientId già noto.
-
-MEDIUM
-- match testuale buono ma non confermato;
-- match da tag API coerente ma non specifico;
-- similarità alta ma non perfetta.
-
-LOW
-- match debole;
-- fallback da categoria generica;
-- match solo parziale;
-- proposta automatica da confermare.
+1. L’app precompila il miglior match disponibile.
+2. Mostra sempre alternative come badge/chip.
+3. Permette sempre di cambiare.
+4. Permette sempre di creare un nuovo alimento.
 ```
 
-Priorità consigliata:
-
-```text
-USER_CORRECTED
-> USER_CONFIRMED
-> USER_CREATED
-> SEED
-> AUTO HIGH
-> AUTO MEDIUM
-> AUTO LOW
-```
-
-Questa parte verrà dettagliata nella specifica sul matching.
+Quindi non servono comportamenti diversi tra HIGH/MEDIUM/LOW.
 
 ---
 
@@ -983,7 +893,7 @@ Il seed deve contenere:
 Il seed crea:
 
 - una `FoodCategoryEntity`;
-- uno o più `RecipeIngredientLinkEntity` o alias equivalenti;
+- uno o più `RecipeIngredientLinkEntity`;
 - eventuali riferimenti iniziali utili al matching.
 
 Le categorie seed non impediscono la creazione runtime di nuove categorie.
@@ -1037,7 +947,7 @@ HAVING totalQuantity > 0
 Serve ottenere tutti i lotti di una categoria:
 
 ```text
-categoriaId → lista ExpiryLot ordinata per expirationDate
+categoryId → lista ExpiryLot ordinata per expirationDate
 ```
 
 ### 17.4 Barcode lookup
@@ -1048,6 +958,8 @@ barcode → BarcodeProductLink attivo → FoodCategory
 
 Se non esiste, si chiama Open Food Facts.
 
+Se Open Food Facts non riconosce il barcode, non viene salvato alcun link barcode parziale.
+
 ### 17.5 Ingredient recipe matching
 
 Il matching ingredienti ricetta deve restituire una lista di categorie interne compatibili, non una singola categoria.
@@ -1056,7 +968,6 @@ Il matching ingredienti ricetta deve restituire una lista di categorie interne c
 normalized ingredient name / externalIngredientId
 → RecipeIngredientLink attivi
 → lista FoodCategory compatibili
-→ RecipeIngredientMatch per la ricetta corrente
 ```
 
 Esempio:
@@ -1073,15 +984,17 @@ pollo
 Per ogni ingrediente ricetta:
 
 ```text
-RecipeIngredient
-→ RecipeIngredientMatch attivi
-→ lista categoryId compatibili
+ingrediente ricetta
+→ normalizedName / externalIngredientId
+→ RecipeIngredientLink attivi
+→ categoryId compatibili
+→ ExpiryLot attivi
 ```
 
 L’ingrediente è “In dispensa” se:
 
 ```text
-esiste almeno un RecipeIngredientMatch attivo
+esiste almeno un RecipeIngredientLink attivo
 e almeno una categoria compatibile ha un ExpiryLot con quantity > 0
 ```
 
@@ -1095,7 +1008,7 @@ Esempio:
 
 ```text
 Ingrediente ricetta: pollo
-Match compatibili: Petto di pollo, Pollo campese
+Link compatibili: Petto di pollo, Pollo campese
 
 Dispensa:
 Petto di pollo ×1
@@ -1135,6 +1048,11 @@ Se un barcode viene corretto:
 - disattivare il vecchio link;
 - creare/attivare il nuovo link.
 
+Se un barcode non viene riconosciuto da Open Food Facts:
+
+- non creare link barcode parziale;
+- trattare il flow successivo come inserimento manuale puro.
+
 ### RecipeIngredientLink
 
 Se un ingrediente ricetta viene corretto globalmente:
@@ -1142,13 +1060,7 @@ Se un ingrediente ricetta viene corretto globalmente:
 - disattivare il vecchio link globale se errato;
 - creare/attivare uno o più nuovi link globali.
 
-### RecipeIngredientMatch
-
-Se un match specifico di una ricetta viene corretto:
-
-- disattivare o rifiutare il match sbagliato;
-- creare/attivare il nuovo match corretto;
-- se l’utente sceglie “Ricorda anche per il futuro”, aggiornare anche `RecipeIngredientLinkEntity`.
+La disattivazione di un link ingrediente/alimento non dipende dalla cancellazione di una ricetta preferita.
 
 ---
 
@@ -1156,21 +1068,29 @@ Se un match specifico di una ricetta viene corretto:
 
 ### Aggiunta alimento
 
-Input:
+Input obbligatori:
 
 ```text
-categoriaId
-dataScadenza
-quantità
+selectedCategory oppure pendingNewCategory selezionata
+expirationDate
+quantity
 ```
 
-Regola:
+Regole:
 
 ```text
-se esiste ExpiryLot(categoriaId, dataScadenza)
-    incrementa quantità
-altrimenti
-    crea nuovo ExpiryLot
+se manca la categoria selezionata → errore UI
+se manca la data scadenza → errore UI
+se quantity < 1 → errore UI
+```
+
+Salvataggio:
+
+```text
+se categoria nuova → crea FoodCategory
+se esiste ExpiryLot(categoryId, expirationDate) → incrementa quantity
+altrimenti → crea nuovo ExpiryLot
+se il flow arriva da barcode riconosciuto con dati prodotto validi → crea/aggiorna BarcodeProductLink
 ```
 
 ### Decremento da riga Dispensa
@@ -1184,22 +1104,48 @@ decremento diretto
 Se la categoria ha due o più lotti:
 
 ```text
-aprire bottom sheet per scegliere quale scadenza decrementare
+naviga a Dettaglio Alimento
 ```
 
-### Decremento da Dettaglio alimento
+### Incremento da riga Dispensa
 
-Nel dettaglio alimento il decremento è sempre diretto sul singolo lotto.
+```text
++ su alimento → Dettaglio Alimento
+```
+
+Motivo: bisogna scegliere se incrementare una scadenza esistente o crearne una nuova.
+
+### Dettaglio alimento
+
+Nel dettaglio alimento tutte le modifiche sono locali/draft finché l’utente non preme “Salva modifiche”.
+
+Modifiche locali:
+
+```text
++ / − sui lotti
+nuova scadenza
+modifica data scadenza
+cambio luogo
+cambio deperibilità
+```
+
+Se l’utente esce con back senza salvare:
+
+```text
+le modifiche locali vengono scartate
+nessun modal di conferma
+nessuna scrittura nel DB
+```
 
 ### Ricette
 
-Il matching ricette usa categorie interne compatibili.
+Il matching ricette usa categorie interne compatibili tramite `RecipeIngredientLinkEntity`.
 
 Il flusso è:
 
 ```text
-RecipeIngredient
-→ RecipeIngredientMatch
+ingrediente ricetta
+→ RecipeIngredientLink
 → FoodCategory
 → ExpiryLot
 ```
@@ -1218,6 +1164,8 @@ pollo → Petto di pollo / Pollo campese
 se una delle due categorie è presente in dispensa → ingrediente in dispensa
 ```
 
+Gli spostamenti manuali tra “In dispensa” e “Da comprare” nel Dettaglio Ricetta sono solo temporanei e non persistenti.
+
 ---
 
 ## 20. Data model finale
@@ -1229,8 +1177,7 @@ Room
 ├── RecipeIngredientLinkEntity
 ├── ExpiryLotEntity
 ├── FavoriteRecipeEntity
-├── RecipeIngredientEntity
-└── RecipeIngredientMatchEntity
+└── RecipeIngredientEntity
 
 DataStore
 └── UserSettings
@@ -1245,11 +1192,20 @@ FoodCategory 1 ─── N ExpiryLot
 
 FavoriteRecipe 1 ─── N RecipeIngredient
 
-RecipeIngredient 1 ─── N RecipeIngredientMatch
-FoodCategory 1 ─── N RecipeIngredientMatch
+RecipeIngredientLink N ─── 1 FoodCategory
+```
 
-RecipeIngredient N ─── N FoodCategory
-tramite RecipeIngredientMatch
+Relazione logica di matching:
+
+```text
+RecipeIngredient / ingrediente runtime
+    normalizedName / externalIngredientId
+        ↓
+RecipeIngredientLink attivi
+        ↓
+FoodCategory compatibili
+        ↓
+ExpiryLot attivi
 ```
 
 ---
@@ -1258,15 +1214,23 @@ tramite RecipeIngredientMatch
 
 1. Il barcode non identifica direttamente un lotto in dispensa.
 2. Il barcode identifica un prodotto commerciale collegato a una categoria interna.
-3. La quantità della dispensa è aggregata per categoria interna e data di scadenza.
-4. Le ricette non vengono confrontate con barcode o prodotti commerciali.
-5. Gli ingredienti ricetta vengono normalizzati verso una o più categorie interne compatibili.
-6. Il confronto ricetta/dispensa avviene tramite `RecipeIngredientMatch`, non tramite un singolo `categoryId` su `RecipeIngredient`.
-7. Le categorie interne possono essere create runtime.
-8. I collegamenti barcode e ingredienti ricetta possono essere corretti.
-9. I collegamenti sbagliati vengono disattivati, non necessariamente eliminati.
-10. Le impostazioni utente stanno in DataStore.
-11. Le ricette salvate in locale sono solo le preferite.
-12. Le immagini sono supportate dal modello ma la strategia di caching è fuori scope.
-13. La confidence è salvata nel modello ma calcolata dal livello di matching.
-14. Il modello supporta associazioni molti-a-molti tra ingredienti ricetta e categorie interne.
+3. Il barcode link viene salvato solo se il prodotto è riconosciuto e i dati prodotto sono validi.
+4. Se il barcode è sconosciuto, il successivo inserimento è manuale puro e non crea link barcode parziale.
+5. La quantità della dispensa è aggregata per categoria interna e data di scadenza.
+6. Le ricette non vengono confrontate con barcode o prodotti commerciali.
+7. Gli ingredienti ricetta vengono normalizzati verso una o più categorie interne compatibili.
+8. Il confronto ricetta/dispensa avviene tramite `RecipeIngredientLinkEntity`, non tramite una tabella `RecipeIngredientMatchEntity`.
+9. `RecipeIngredientMatchEntity` non fa parte del data model persistente.
+10. Le categorie interne possono essere create runtime.
+11. I collegamenti barcode e ingredienti ricetta possono essere corretti.
+12. I collegamenti sbagliati vengono disattivati, non necessariamente eliminati.
+13. Le impostazioni utente stanno in DataStore.
+14. Le ricette salvate in locale sono solo le preferite.
+15. I dati delle ricette non preferite restano solo in RAM.
+16. I mapping ingrediente/alimento restano persistenti anche se la ricetta non è preferita.
+17. La cancellazione di una ricetta preferita non cancella i mapping globali ingrediente/alimento.
+18. Le immagini sono supportate dal modello ma la strategia di caching è fuori scope.
+19. Il modello supporta associazioni molti-a-molti tra label ingrediente ricetta e categorie interne tramite `RecipeIngredientLinkEntity`.
+20. La bontà dei match viene calcolata a runtime, non salvata in Room.
+21. `RecipeSource`, `MatchConfidence`, `MatchSource`, `FoodCategorySource`, `LinkSource` e `RecipeIngredientMatchEntity` non fanno parte del data model finale.
+22. Le uniche source/origin persistenti sono `CategoryOrigin` e `LinkOrigin`.
