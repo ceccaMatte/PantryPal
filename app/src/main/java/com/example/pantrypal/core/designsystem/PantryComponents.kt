@@ -1,0 +1,257 @@
+package com.example.pantrypal.core.designsystem
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun PantryCard(
+    modifier: Modifier = Modifier,
+    containerColor: Color = PantryColors.Card,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        content = { Column(Modifier.padding(PantrySpacing.lg), content = content) }
+    )
+}
+
+@Composable
+fun FoodChip(
+    label: String,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    icon: ImageVector? = null,
+    badge: String? = null,
+    dashed: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    val background = if (selected) PantryColors.Green700 else PantryColors.Card
+    val contentColor = if (selected) Color.White else PantryColors.InkSoft
+    val shape = RoundedCornerShape(28.dp)
+    val border = if (selected) null else BorderStroke(1.dp, PantryColors.Line)
+    Surface(
+        modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        shape = shape,
+        color = background,
+        contentColor = contentColor,
+        border = if (dashed) BorderStroke(1.dp, PantryColors.Green700) else border
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
+            Text(label, style = PantryTypography.labelLarge)
+            badge?.let {
+                Text(
+                    text = it,
+                    modifier = Modifier
+                        .background(PantryColors.ErrorBg, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    color = PantryColors.Error,
+                    style = PantryTypography.labelLarge
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun Stepper(
+    value: Int,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .border(1.dp, PantryColors.Line, RoundedCornerShape(28.dp))
+            .background(PantryColors.Card, RoundedCornerShape(28.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onMinus, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.Remove, contentDescription = "Rimuovi", tint = PantryColors.Green700)
+        }
+        Text("x$value", style = PantryTypography.labelLarge, modifier = Modifier.width(42.dp), textAlign = TextAlign.Center)
+        IconButton(onClick = onPlus, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.Add, contentDescription = "Aggiungi", tint = PantryColors.Green700)
+        }
+    }
+}
+
+@Composable
+fun PantryFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier
+            .size(72.dp)
+            .shadow(12.dp, RoundedCornerShape(22.dp)),
+        shape = RoundedCornerShape(22.dp),
+        containerColor = PantryColors.Green700,
+        contentColor = Color.White
+    ) {
+        Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(34.dp))
+    }
+}
+
+data class PantryBottomBarItem(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+@Composable
+fun PantryBottomBar(
+    items: List<PantryBottomBarItem>,
+    currentRoute: String?,
+    onItemClick: (String) -> Unit,
+    onFabClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .height(88.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = PantryColors.Card,
+            tonalElevation = 8.dp,
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.take(2).forEach { item ->
+                    NavigationBarItemContent(item, currentRoute, onItemClick)
+                }
+                Spacer(Modifier.width(78.dp))
+                items.drop(2).forEach { item ->
+                    NavigationBarItemContent(item, currentRoute, onItemClick)
+                }
+            }
+        }
+        PantryFab(onFabClick, Modifier.align(Alignment.TopCenter))
+    }
+}
+
+@Composable
+private fun RowScope.NavigationBarItemContent(
+    item: PantryBottomBarItem,
+    currentRoute: String?,
+    onItemClick: (String) -> Unit
+) {
+    val selected = currentRoute == item.route || currentRoute?.startsWith(item.route) == true
+    val color = if (selected) PantryColors.Green700 else PantryColors.Muted
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clickable { onItemClick(item.route) },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(item.icon, contentDescription = item.label, tint = color)
+        Text(item.label, style = PantryTypography.labelLarge, color = color)
+    }
+}
+
+@Composable
+fun EmptyState(title: String, message: String, modifier: Modifier = Modifier) {
+    PantryCard(modifier = modifier) {
+        Text(title, style = PantryTypography.titleMedium)
+        Spacer(Modifier.height(PantrySpacing.sm))
+        Text(message, color = PantryColors.Muted)
+    }
+}
+
+@Composable
+fun LoadingState(message: String = "Caricamento...", modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(PantrySpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator(color = PantryColors.Green700)
+        Spacer(Modifier.height(PantrySpacing.md))
+        Text(message, color = PantryColors.Muted)
+    }
+}
+
+@Composable
+fun ErrorState(message: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(PantryColors.ErrorBg, RoundedCornerShape(18.dp))
+            .padding(PantrySpacing.lg),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = PantryColors.Error)
+        Spacer(Modifier.width(PantrySpacing.sm))
+        Text(message, color = PantryColors.Error, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun PlaceholderImageBox(
+    modifier: Modifier = Modifier,
+    background: Color = PantryColors.Green50
+) {
+    Box(
+        modifier = modifier.background(background, RoundedCornerShape(18.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .border(2.dp, PantryColors.Line, CircleShape)
+        )
+    }
+}
