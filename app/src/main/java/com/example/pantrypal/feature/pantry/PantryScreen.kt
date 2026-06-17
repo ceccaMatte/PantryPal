@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
 import com.example.pantrypal.core.designsystem.FoodChip
@@ -55,7 +58,9 @@ fun PantryScreen(
     onEvent: (PantryEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val rows = state.pantryRows.filterBy(state.selectedFilter)
+    val rows = state.pantryRows
+        .filterBy(state.selectedFilter)
+        .filterBySearch(state.normalizedSearchQuery)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -70,12 +75,23 @@ fun PantryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Dispensa", style = PantryTypography.headlineMedium)
-            Surface(shape = RoundedCornerShape(16.dp), color = PantryColors.Card) {
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.Search, contentDescription = "Cerca", tint = PantryColors.Ink)
-                }
-            }
         }
+
+        OutlinedTextField(
+            value = state.searchQuery,
+            onValueChange = { onEvent(PantryEvent.OnSearchQueryChanged(it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Cerca alimento...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = PantryColors.Muted) },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PantryColors.Green700,
+                unfocusedBorderColor = PantryColors.Line,
+                focusedContainerColor = PantryColors.Card,
+                unfocusedContainerColor = PantryColors.Card
+            )
+        )
 
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -109,8 +125,12 @@ fun PantryScreen(
 
         if (rows.isEmpty()) {
             EmptyState(
-                title = "Nessun alimento",
-                message = "Aggiungi un alimento per iniziare a popolare questa sezione."
+                title = if (state.searchQuery.isBlank()) "Nessun alimento" else "Nessun alimento trovato",
+                message = if (state.searchQuery.isBlank()) {
+                    "Aggiungi un alimento per iniziare a popolare questa sezione."
+                } else {
+                    "Prova con un altro nome o cambia filtro."
+                }
             )
         } else {
             rows.groupBy { it.storageLocation }.forEach { (location, groupedRows) ->
@@ -209,7 +229,7 @@ private fun PantryFoodRow(row: PantryRowUi, onEvent: (PantryEvent) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
             PlaceholderImageBox(modifier = Modifier.size(76.dp), background = locationTint(row.storageLocation))
             Column(modifier = Modifier.weight(1f)) {
-                Text(row.name, style = PantryTypography.titleLarge)
+                Text(row.name, style = PantryTypography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.WarningAmber,
@@ -247,6 +267,13 @@ private fun List<PantryRowUi>.filterBy(filter: StorageLocationFilter): List<Pant
         StorageLocationFilter.FRIDGE -> filter { it.storageLocation == StorageLocation.FRIDGE }
         StorageLocationFilter.FREEZER -> filter { it.storageLocation == StorageLocation.FREEZER }
         StorageLocationFilter.PANTRY -> filter { it.storageLocation == StorageLocation.PANTRY }
+    }
+
+private fun List<PantryRowUi>.filterBySearch(normalizedQuery: String): List<PantryRowUi> =
+    if (normalizedQuery.isBlank()) {
+        this
+    } else {
+        filter { row -> row.name.lowercase().contains(normalizedQuery) }
     }
 
 private val StorageLocation.label: String

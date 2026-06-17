@@ -2,6 +2,7 @@ package com.example.pantrypal.feature.pantry
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.PantryRow
@@ -28,7 +29,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class PantryViewModel @Inject constructor(
     private val pantryRepository: PantryRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val textNormalizer: TextNormalizer
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PantryUiState())
     val uiState: StateFlow<PantryUiState> = _uiState.asStateFlow()
@@ -63,6 +65,12 @@ class PantryViewModel @Inject constructor(
     fun onEvent(event: PantryEvent) {
         viewModelScope.launch {
             when (event) {
+                is PantryEvent.OnSearchQueryChanged -> _uiState.update {
+                    it.copy(
+                        searchQuery = event.value,
+                        normalizedSearchQuery = textNormalizer.normalizeFoodText(event.value)
+                    )
+                }
                 is PantryEvent.OnFilterSelected -> {
                     _uiState.update { it.copy(selectedFilter = event.filter) }
                     settingsRepository.updatePantryStorageFilter(event.filter)

@@ -69,6 +69,14 @@ data class LinkRecipeIngredientToFoodCommand(
     val replaceLinkId: Long? = null
 )
 
+data class ReplaceRecipeIngredientLinksCommand(
+    val aliasOriginal: String,
+    val normalizedAlias: String,
+    val externalIngredientId: String?,
+    val categoryIds: Set<Long>,
+    val language: String? = null
+)
+
 data class HomeOverview(
     val username: String?,
     val totalPackages: Int,

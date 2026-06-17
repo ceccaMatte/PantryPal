@@ -21,6 +21,7 @@ import com.example.pantrypal.domain.model.RecipeIngredientData
 import com.example.pantrypal.domain.model.RecipeIngredientLink
 import com.example.pantrypal.domain.model.RecipeSearchQuery
 import com.example.pantrypal.domain.model.RecipeSearchResult
+import com.example.pantrypal.domain.model.ReplaceRecipeIngredientLinksCommand
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -257,6 +258,59 @@ class RecipeRepositoryImpl @Inject constructor(
             recipeIngredientLinkDao.findActiveLinksByAlias(normalizedAlias)
                 .firstOrNull { it.categoryId == categoryId }
                 ?.toDomain()
+        }
+    }
+
+    override suspend fun replaceIngredientFoodLinks(
+        command: ReplaceRecipeIngredientLinksCommand
+    ): List<RecipeIngredientLink> {
+        if (command.normalizedAlias.isBlank()) return emptyList()
+        val now = Instant.now()
+        return database.withTransaction {
+            val currentLinks = findIngredientLinks(
+                normalizedAlias = command.normalizedAlias,
+                externalIngredientId = command.externalIngredientId
+            )
+            currentLinks
+                .filter { it.categoryId !in command.categoryIds }
+                .forEach { recipeIngredientLinkDao.deleteById(it.id) }
+
+            command.categoryIds.forEach { categoryId ->
+                val existing = recipeIngredientLinkDao.getLinkByAliasAndCategory(command.normalizedAlias, categoryId)
+                if (existing == null) {
+                    recipeIngredientLinkDao.upsert(
+                        RecipeIngredientLinkEntity(
+                            categoryId = categoryId,
+                            aliasOriginal = command.aliasOriginal.trim(),
+                            normalizedAlias = command.normalizedAlias,
+                            language = command.language?.takeIf { it.isNotBlank() },
+                            externalIngredientId = command.externalIngredientId,
+                            relationType = IngredientRelationType.EXACT,
+                            origin = LinkOrigin.USER,
+                            isActive = true,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    )
+                } else {
+                    recipeIngredientLinkDao.upsert(
+                        existing.copy(
+                            aliasOriginal = command.aliasOriginal.trim(),
+                            language = command.language?.takeIf { it.isNotBlank() },
+                            externalIngredientId = command.externalIngredientId ?: existing.externalIngredientId,
+                            relationType = IngredientRelationType.EXACT,
+                            origin = LinkOrigin.USER,
+                            isActive = true,
+                            updatedAt = now
+                        )
+                    )
+                }
+            }
+
+            findIngredientLinks(
+                normalizedAlias = command.normalizedAlias,
+                externalIngredientId = command.externalIngredientId
+            )
         }
     }
 

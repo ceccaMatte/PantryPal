@@ -35,6 +35,7 @@ import com.example.pantrypal.domain.model.RecipeSearchQuery
 import com.example.pantrypal.domain.model.RecipeSearchResult
 import com.example.pantrypal.domain.model.RecipeAvailabilityStatus
 import com.example.pantrypal.domain.model.RecognizedBarcodeProduct
+import com.example.pantrypal.domain.model.ReplaceRecipeIngredientLinksCommand
 import com.example.pantrypal.domain.model.StorageLocation
 import com.example.pantrypal.domain.model.StorageLocationFilter
 import com.example.pantrypal.domain.model.UserSettings
@@ -221,6 +222,29 @@ class Prompt3UseCasesTest {
         assertFalse(repository.links.any { it.id == 9L })
         assertTrue(repository.links.any { it.categoryId == 2L && it.normalizedAlias == "milk" })
     }
+
+    @Test
+    fun replaceIngredientLinksCreatesNewLinksAndRemovesDeselectedOnes() = runBlocking {
+        val repository = FakeRecipeRepository().apply {
+            links += ingredientLink(id = 1, categoryId = 1, alias = "milk")
+            links += ingredientLink(id = 2, categoryId = 2, alias = "milk")
+        }
+        val useCase = ReplaceRecipeIngredientLinksUseCase(repository)
+
+        useCase(
+            ReplaceRecipeIngredientLinksCommand(
+                aliasOriginal = "milk",
+                normalizedAlias = "milk",
+                externalIngredientId = null,
+                categoryIds = setOf(2, 3),
+                language = "it"
+            )
+        )
+
+        assertFalse(repository.links.any { it.categoryId == 1L && it.normalizedAlias == "milk" })
+        assertTrue(repository.links.any { it.categoryId == 2L && it.normalizedAlias == "milk" })
+        assertTrue(repository.links.any { it.categoryId == 3L && it.normalizedAlias == "milk" })
+    }
 }
 
 private class FakeFoodRecognitionRepository(
@@ -328,6 +352,29 @@ private class FakeRecipeRepository : RecipeRepository {
             externalIngredientId = externalIngredientId,
             language = language
         ).also { links += it }
+    }
+
+    override suspend fun replaceIngredientFoodLinks(command: ReplaceRecipeIngredientLinksCommand): List<RecipeIngredientLink> {
+        links.removeAll {
+            it.normalizedAlias == command.normalizedAlias &&
+                (command.externalIngredientId == null || it.externalIngredientId == command.externalIngredientId) &&
+                it.categoryId !in command.categoryIds
+        }
+        command.categoryIds.forEach { categoryId ->
+            if (links.none { it.normalizedAlias == command.normalizedAlias && it.categoryId == categoryId }) {
+                links += ingredientLink(
+                    id = nextLinkId++,
+                    categoryId = categoryId,
+                    alias = command.normalizedAlias,
+                    externalIngredientId = command.externalIngredientId,
+                    language = command.language
+                )
+            }
+        }
+        return links.filter {
+            it.normalizedAlias == command.normalizedAlias &&
+                (command.externalIngredientId == null || it.externalIngredientId == command.externalIngredientId)
+        }
     }
 }
 

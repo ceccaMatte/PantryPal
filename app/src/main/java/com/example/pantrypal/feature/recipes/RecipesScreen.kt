@@ -118,9 +118,13 @@ fun RecipesScreen(
             EmptyState("Ricette", state.message)
         } else if (visibleRecipes.isEmpty()) {
             EmptyState(
-                "Nessuna ricetta",
+                if (state.selectedTab == RecipeTab.FAVORITES && state.searchQuery.isNotBlank()) {
+                    "Nessuna ricetta preferita trovata"
+                } else {
+                    "Nessuna ricetta"
+                },
                 if (state.selectedTab == RecipeTab.FAVORITES) {
-                    "I preferiti salvati compariranno qui."
+                    if (state.searchQuery.isBlank()) "I preferiti salvati compariranno qui." else "Prova con un altro titolo."
                 } else {
                     "Cerca una ricetta per vedere risultati reali."
                 }

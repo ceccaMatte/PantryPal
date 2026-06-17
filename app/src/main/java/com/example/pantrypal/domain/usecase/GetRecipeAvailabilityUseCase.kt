@@ -22,6 +22,8 @@ class GetRecipeAvailabilityUseCase @Inject constructor(
             val categoryIds = links.map { it.categoryId }.distinct()
             val categories = categoryIds.mapNotNull { pantryRepository.getFoodCategory(it) }
             val activeLots = pantryRepository.getActiveLotsForCategories(categoryIds)
+            val activeCategoryIds = activeLots.map { it.categoryId }.toSet()
+            val availableCategories = categories.filter { it.id in activeCategoryIds }
             val totalAvailable = activeLots.sumOf { it.quantity }
 
             RecipeIngredientAvailabilityItem(
@@ -32,6 +34,7 @@ class GetRecipeAvailabilityUseCase @Inject constructor(
                     RecipeAvailabilityStatus.TO_BUY
                 },
                 linkedCategories = categories.sortedBy(FoodCategory::name),
+                availableCategories = availableCategories.sortedBy(FoodCategory::name),
                 matchingLinks = links,
                 totalAvailableQuantity = totalAvailable
             )

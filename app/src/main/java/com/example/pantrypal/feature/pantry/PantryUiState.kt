@@ -7,6 +7,8 @@ import com.example.pantrypal.domain.model.StorageLocationFilter
 data class PantryUiState(
     val isLoading: Boolean = false,
     val selectedFilter: StorageLocationFilter = StorageLocationFilter.ALL,
+    val searchQuery: String = "",
+    val normalizedSearchQuery: String = "",
     val expiringFoods: List<ExpiringFoodCardUi> = emptyList(),
     val pantryRows: List<PantryRowUi> = emptyList(),
     val focusedExpiringCategoryId: Long? = null,
@@ -33,6 +35,7 @@ data class ExpiringFoodCardUi(
 )
 
 sealed interface PantryEvent {
+    data class OnSearchQueryChanged(val value: String) : PantryEvent
     data class OnFilterSelected(val filter: StorageLocationFilter) : PantryEvent
     data class OnFoodClick(val categoryId: Long) : PantryEvent
     data class OnExpiringFoodClick(val categoryId: Long) : PantryEvent

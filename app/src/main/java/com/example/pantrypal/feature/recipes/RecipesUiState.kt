@@ -40,8 +40,11 @@ data class RecipeDetailUiState(
     val missingIngredients: List<RecipeIngredientUi> = emptyList(),
     val isSummaryExpanded: Boolean = false,
     val expandedIngredientKey: String? = null,
-    val linkSuggestions: List<RecipeFoodSuggestionUi> = emptyList(),
-    val linkQuery: String = "",
+    val linkSheetIngredientKey: String? = null,
+    val linkSheetQuery: String = "",
+    val linkSheetCategories: List<RecipeLinkCategoryUi> = emptyList(),
+    val linkSheetSelectedCategoryIds: Set<Long> = emptySet(),
+    val canCreateLinkSheetCategory: Boolean = false,
     val isLoading: Boolean = false,
     val configMissing: Boolean = false,
     val errorMessage: String? = null
@@ -55,13 +58,23 @@ data class RecipeIngredientUi(
     val isPresent: Boolean,
     val externalIngredientId: String?,
     val normalizedName: String,
-    val replaceLinkId: Long? = null
+    val replaceLinkId: Long? = null,
+    val linkedCategoryNames: List<String> = emptyList(),
+    val linkedCategories: List<RecipeLinkedCategoryUi> = emptyList(),
+    val availableCategories: List<RecipeLinkedCategoryUi> = emptyList(),
+    val selectedCategoryId: Long? = null
 )
 
-data class RecipeFoodSuggestionUi(
-    val categoryId: Long?,
+data class RecipeLinkedCategoryUi(
+    val categoryId: Long,
     val label: String,
-    val isCreateNew: Boolean = false
+    val selected: Boolean = false
+)
+
+data class RecipeLinkCategoryUi(
+    val categoryId: Long,
+    val label: String,
+    val selected: Boolean
 )
 
 sealed interface RecipesEvent {
@@ -83,8 +96,12 @@ sealed interface RecipeDetailEvent {
     data object OnSummaryToggleClick : RecipeDetailEvent
     data class OnIngredientClick(val ingredientKey: String) : RecipeDetailEvent
     data object OnDismissIngredientSheet : RecipeDetailEvent
-    data class OnLinkQueryChange(val value: String) : RecipeDetailEvent
-    data class OnFoodSuggestionClick(val suggestion: RecipeFoodSuggestionUi) : RecipeDetailEvent
+    data class OnAvailableCategoryClick(val ingredientKey: String, val categoryId: Long) : RecipeDetailEvent
+    data class OnManageIngredientLinksClick(val ingredientKey: String) : RecipeDetailEvent
+    data class OnLinkSheetQueryChange(val value: String) : RecipeDetailEvent
+    data class OnLinkSheetCategoryToggle(val categoryId: Long) : RecipeDetailEvent
+    data object OnLinkSheetCreateCategoryClick : RecipeDetailEvent
+    data object OnLinkSheetSaveClick : RecipeDetailEvent
     data object OnMoveSelectedToBuyClick : RecipeDetailEvent
     data object OnMarkSelectedInPantryClick : RecipeDetailEvent
 }

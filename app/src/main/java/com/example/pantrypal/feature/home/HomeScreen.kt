@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
@@ -157,15 +158,17 @@ fun HomeScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Ricette Suggerite", style = PantryTypography.headlineMedium)
-            Text(
-                state.suggestedRecipesMessage,
-                modifier = Modifier
-                    .background(PantryColors.Green50, RoundedCornerShape(12.dp))
-                    .padding(10.dp),
-                color = PantryColors.Green700,
-                style = PantryTypography.labelLarge
-            )
+            Button(
+                onClick = { onEvent(HomeEvent.OnGenerateRecipesClick) },
+                enabled = state.canGenerateRecipes && !state.isGeneratingRecipes,
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(if (state.isGeneratingRecipes) " Aggiorno" else " Aggiorna", style = PantryTypography.labelLarge)
+            }
         }
+        Text(state.suggestedRecipesMessage, color = PantryColors.Muted, style = PantryTypography.labelLarge)
         if (state.suggestedRecipes.isEmpty()) {
             EmptyState("Nessuna ricetta", state.suggestedRecipesMessage)
             if (state.canGenerateRecipes) {

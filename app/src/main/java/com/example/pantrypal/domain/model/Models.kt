@@ -306,6 +306,7 @@ data class RecipeIngredientAvailabilityItem(
     val ingredient: RecipeIngredientData,
     val status: RecipeAvailabilityStatus,
     val linkedCategories: List<FoodCategory>,
+    val availableCategories: List<FoodCategory> = emptyList(),
     val matchingLinks: List<RecipeIngredientLink>,
     val totalAvailableQuantity: Int
 )

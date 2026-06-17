@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.data.recipe.RecipeRepository
+import com.example.pantrypal.data.recipe.SessionRecipeCache
 import com.example.pantrypal.domain.model.PantryPalApiMode
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeDetailResult
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class RecipesViewModel @Inject constructor(
     private val recipeRepository: RecipeRepository,
+    private val sessionRecipeCache: SessionRecipeCache,
     private val toggleFavoriteRecipeUseCase: ToggleFavoriteRecipeUseCase,
     private val textNormalizer: TextNormalizer
 ) : ViewModel() {
@@ -33,16 +35,25 @@ class RecipesViewModel @Inject constructor(
     val effects = _effects.receiveAsFlow()
 
     private var favoriteIds: Set<String> = emptySet()
+    private var allFavorites: List<RecipeCardUi> = emptyList()
 
     init {
         viewModelScope.launch {
             recipeRepository.observeFavoriteRecipes().collect { favorites ->
                 favoriteIds = favorites.map { it.externalId }.toSet()
+                allFavorites = favorites.map { it.toUi(isFavorite = true) }
                 _uiState.update { state ->
                     state.copy(
-                        favorites = favorites.map { it.toUi(isFavorite = true) },
+                        favorites = allFavorites.filterByTitle(state.searchQuery),
                         recipes = state.recipes.markFavorites(favoriteIds)
                     )
+                }
+            }
+        }
+        viewModelScope.launch {
+            sessionRecipeCache.recipes.collect { cachedRecipes ->
+                _uiState.update { state ->
+                    state.copy(recipes = cachedRecipes.map { it.toUi() }.markFavorites(favoriteIds))
                 }
             }
         }
@@ -52,8 +63,12 @@ class RecipesViewModel @Inject constructor(
         viewModelScope.launch {
             when (event) {
                 is RecipesEvent.OnSearchQueryChanged -> onSearchQueryChanged(event.value)
-                RecipesEvent.OnSearchClick -> searchSubmittedQuery()
-                is RecipesEvent.OnTabSelected -> _uiState.update { it.copy(selectedTab = event.tab) }
+                RecipesEvent.OnSearchClick -> {
+                    if (_uiState.value.selectedTab == RecipeTab.RESULTS) searchSubmittedQuery()
+                }
+                is RecipesEvent.OnTabSelected -> _uiState.update {
+                    it.copy(selectedTab = event.tab, favorites = allFavorites.filterByTitle(it.searchQuery))
+                }
                 is RecipesEvent.OnRecipeClick -> _effects.send(RecipesEffect.NavigateToRecipeDetail(event.externalId))
                 is RecipesEvent.OnRecipeFavoriteClick -> toggleFavorite(event.externalId)
             }
@@ -66,6 +81,7 @@ class RecipesViewModel @Inject constructor(
             it.copy(
                 searchQuery = value,
                 isSearchButtonEnabled = normalizedQuery.length >= 3,
+                favorites = allFavorites.filterByTitle(value),
                 message = null
             )
         }
@@ -81,19 +97,21 @@ class RecipesViewModel @Inject constructor(
             it.copy(isLoading = true, message = null, selectedTab = RecipeTab.RESULTS)
         }
         when (val result = recipeRepository.searchRecipes(RecipeSearchQuery(state.searchQuery))) {
-            is RecipeSearchResult.Success -> _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    lastSubmittedQuery = normalizedQuery,
-                    recipes = result.recipes.map { recipe -> recipe.toUi() }.markFavorites(favoriteIds),
-                    message = null
-                )
+            is RecipeSearchResult.Success -> {
+                sessionRecipeCache.merge(result.recipes)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        lastSubmittedQuery = normalizedQuery,
+                        recipes = sessionRecipeCache.recipes.value.map { recipe -> recipe.toUi() }.markFavorites(favoriteIds),
+                        message = null
+                    )
+                }
             }
             else -> _uiState.update {
                 it.copy(
                     isLoading = false,
                     lastSubmittedQuery = normalizedQuery,
-                    recipes = emptyList(),
                     message = result.toUiMessage(recipeRepository.apiMode)
                 )
             }
@@ -151,6 +169,12 @@ private fun RecipeCard.toUi(isFavorite: Boolean = this.isFavorite): RecipeCardUi
 
 private fun List<RecipeCardUi>.markFavorites(favoriteIds: Set<String>): List<RecipeCardUi> =
     map { it.copy(isFavorite = it.externalId in favoriteIds) }
+
+private fun List<RecipeCardUi>.filterByTitle(query: String): List<RecipeCardUi> {
+    val normalized = query.trim().lowercase()
+    if (normalized.isBlank()) return this
+    return filter { it.title.lowercase().contains(normalized) }
+}
 
 private fun RecipeSearchResult.toUiMessage(mode: PantryPalApiMode): String =
     when (this) {

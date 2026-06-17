@@ -4,6 +4,7 @@ import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeDetail
 import com.example.pantrypal.domain.model.RecipeDetailResult
 import com.example.pantrypal.domain.model.RecipeIngredientLink
+import com.example.pantrypal.domain.model.ReplaceRecipeIngredientLinksCommand
 import com.example.pantrypal.domain.model.RecipeSearchQuery
 import com.example.pantrypal.domain.model.RecipeSearchResult
 import com.example.pantrypal.domain.model.PantryPalApiMode
@@ -30,4 +31,5 @@ interface RecipeRepository {
         language: String?,
         replaceLinkId: Long? = null
     ): RecipeIngredientLink?
+    suspend fun replaceIngredientFoodLinks(command: ReplaceRecipeIngredientLinksCommand): List<RecipeIngredientLink>
 }
