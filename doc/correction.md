@@ -1,0 +1,15 @@
+1) se clicco sulla card degli articoli in scadenza (senza toccare badge degli alimenti) non mi porta alla sezione dispesa con il filtro all attivo
+2) nella sezione aggiungi alimento non c'è l apossibilità di aggiunger epiù alimenti con scadenze diverse deve essere praticamnte la stessa ux della pagina dettagli ingredinete per quanto riguarda il discorso di aggiungere scadenze
+3) se licco la card totale disopensa non mi porta alla sezione dispensa con il filtro all selezionato
+4) nella sezione profilo utente gli input per impstare i giorni prima die quali essere notificati devono essere mostrati solo se lo switch è attivo altimrenti devono essere nascolsti e deve essere visibile solo lo switch. poi i segna giorni per impsatre quanti giorni prima esere notificati non deve esserci scritto x2 ma 2g perchè non è un moltiplicatore è un segna giorni
+5) poi in collegammneti alimneti per aggiungere i nomi ricette ci sono 2 form uno dove metter eil nome e un tasto aggiungi non va bene deve essere un unico box dove scrivi e poi hai la possibilità di aggiungere non due form per la stessa cosa di fatto
+6) La gestione dei testi è fatta male in generale la maggior parte die font sono troppo grandi e se un testo no ci sta che ricschia di andare a capo tipo in qualsiasi form delle ricette scrivi il nome della ricetta e poi fai ...
+7) poi nella homela card delle ricette deve eserci la possibilità di mettere e togliere like per salvarle le ricette consigliate vano bene ma manca il badge del like
+8) nella sezione utente se clicco modalità chiaro scuso o auto la ui dell'app non cambia mai questo è un problema
+9) nella sezione in scadenza in dispesa devi mostrare solo gli alimenit che superano la dead line di notifica non sempre tutti gli ingredineti es se io ho il pollo che scade tra 1 settimana ed è un alimenot fresco ed io ho la dead line di scadenza  a 2 giorni dalla scadenza lo devo mostrare tra glialimenit in scadenza solo se i giorni che mancano alla scadenza sono <= 2 quidni se sono a 3 giorni dalla scadenz anon lo mostro se sono a 2hiorni 1 giorno e è opassata la dead line allora lo mostro
+10) nella home le icone per frigo freezer e dispensa è sempre la stessa del figo deve cambiare a seconda del tipo di categoria deve esserci l'icona corretta
+11) la sezione del dettgalio ricetta è tutta da sistemare
+- 1 qunaod apro un ingrediente mi apre un modal invece di aprimi sotto in maniera ocntestuale
+- 2 dalla ricetta non estra il nome dell'alimento ma mette nome + dosi in questo modo non riuscirò mail a fare il match tra cio che hai in dispensa e cio ce devi comprare per chè io faccio un mathc a parolo e se il nome dell'alimenot è nome + quantità non macharà mia
+- 3 poi in fondo alla pagina del dettglio ricetta c'è un pulksante ce l'ho - segnai in dispensa che no ha senso buttato loi a casio non ha contente ne nulla è da cavare
+- 4 poi la descrizione della ricetta è molto lunga quidni va mostarta un po' poi clicppata con i ... e ci deve essere mostra altro e nascondi in modo tale che l'unte possa scegleire se leggerla o meno 
