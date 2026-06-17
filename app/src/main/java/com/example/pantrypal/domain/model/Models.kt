@@ -45,6 +45,23 @@ enum class AppTheme {
     SYSTEM
 }
 
+enum class PantryPalApiMode {
+    MOCK,
+    REAL,
+    CACHE_ONLY;
+
+    companion object {
+        fun fromRaw(value: String?): PantryPalApiMode =
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: MOCK
+    }
+}
+
+enum class ApiCacheType {
+    RECIPE_SEARCH,
+    RECIPE_BY_INGREDIENTS,
+    RECIPE_DETAIL
+}
+
 data class UserSettings(
     val username: String = "",
     val language: String = "it",
@@ -238,6 +255,11 @@ sealed interface RecipeSearchResult {
     data class Success(val recipes: List<RecipeCard>) : RecipeSearchResult
     data object Empty : RecipeSearchResult
     data object ConfigMissing : RecipeSearchResult
+    data object QuotaExceeded : RecipeSearchResult
+    data object RateLimited : RecipeSearchResult
+    data object NetworkError : RecipeSearchResult
+    data object InvalidResponse : RecipeSearchResult
+    data object GenericError : RecipeSearchResult
     data object Offline : RecipeSearchResult
     data object Error : RecipeSearchResult
 }
@@ -252,6 +274,17 @@ data class RecipeDetail(
     val sourceUrl: String?,
     val ingredients: List<RecipeIngredientData>
 )
+
+sealed interface RecipeDetailResult {
+    data class Success(val recipe: RecipeDetail) : RecipeDetailResult
+    data object Empty : RecipeDetailResult
+    data object ConfigMissing : RecipeDetailResult
+    data object QuotaExceeded : RecipeDetailResult
+    data object RateLimited : RecipeDetailResult
+    data object NetworkError : RecipeDetailResult
+    data object InvalidResponse : RecipeDetailResult
+    data object GenericError : RecipeDetailResult
+}
 
 data class RecipeIngredientData(
     val originalName: String,

@@ -1,13 +1,15 @@
 package com.example.pantrypal.feature.recipes
 
 data class RecipesUiState(
-    val query: String = "",
+    val searchQuery: String = "",
+    val lastSubmittedQuery: String? = null,
     val selectedTab: RecipeTab = RecipeTab.RESULTS,
     val recipes: List<RecipeCardUi> = emptyList(),
     val favorites: List<RecipeCardUi> = emptyList(),
     val isLoading: Boolean = false,
-    val configMissing: Boolean = false,
-    val errorMessage: String? = null
+    val isSearchButtonEnabled: Boolean = false,
+    val apiMode: com.example.pantrypal.domain.model.PantryPalApiMode = com.example.pantrypal.domain.model.PantryPalApiMode.MOCK,
+    val message: String? = null
 )
 
 enum class RecipeTab {
@@ -62,10 +64,11 @@ data class RecipeFoodSuggestionUi(
 )
 
 sealed interface RecipesEvent {
-    data class OnQueryChange(val value: String) : RecipesEvent
+    data class OnSearchQueryChanged(val value: String) : RecipesEvent
+    data object OnSearchClick : RecipesEvent
     data class OnTabSelected(val tab: RecipeTab) : RecipesEvent
     data class OnRecipeClick(val externalId: String) : RecipesEvent
-    data class OnFavoriteClick(val externalId: String) : RecipesEvent
+    data class OnRecipeFavoriteClick(val externalId: String) : RecipesEvent
 }
 
 sealed interface RecipesEffect {

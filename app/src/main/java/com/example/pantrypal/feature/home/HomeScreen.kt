@@ -157,6 +157,17 @@ fun HomeScreen(
         }
         if (state.suggestedRecipes.isEmpty()) {
             EmptyState("Nessuna ricetta", state.suggestedRecipesMessage)
+            if (state.canGenerateRecipes) {
+                Button(
+                    onClick = { onEvent(HomeEvent.OnGenerateRecipesClick) },
+                    enabled = !state.isGeneratingRecipes,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(if (state.isGeneratingRecipes) "Generazione..." else "Genera ricette")
+                }
+            }
         } else {
             state.suggestedRecipes.forEach { recipe ->
                 RecipeSuggestionCard(recipe) { onEvent(HomeEvent.OnRecipeClick(recipe.externalId)) }

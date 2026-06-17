@@ -2,6 +2,8 @@ package com.example.pantrypal.feature.recipes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,9 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
-import com.example.pantrypal.core.designsystem.ErrorState
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.LoadingState
 import com.example.pantrypal.core.designsystem.PantryCard
@@ -63,21 +65,40 @@ fun RecipesScreen(
         verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
     ) {
         Text("Ricette", style = PantryTypography.displaySmall, color = PantryColors.Green700)
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = { onEvent(RecipesEvent.OnQueryChange(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Cerca ingredienti o piatti...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PantryColors.Line,
-                unfocusedBorderColor = PantryColors.Line,
-                focusedContainerColor = PantryColors.Card,
-                unfocusedContainerColor = PantryColors.Card
+        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = { onEvent(RecipesEvent.OnSearchQueryChanged(it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Cerca ingredienti o piatti...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        if (state.isSearchButtonEnabled) onEvent(RecipesEvent.OnSearchClick)
+                    }
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PantryColors.Line,
+                    unfocusedBorderColor = PantryColors.Line,
+                    focusedContainerColor = PantryColors.Card,
+                    unfocusedContainerColor = PantryColors.Card
+                )
             )
-        )
+            Button(
+                onClick = { onEvent(RecipesEvent.OnSearchClick) },
+                enabled = state.isSearchButtonEnabled && !state.isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Cerca")
+            }
+        }
+        state.message?.let {
+            Text(it, color = PantryColors.Muted)
+        }
         Text("Sulla base di cio che hai in dispensa", color = PantryColors.Muted)
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.xl), verticalAlignment = Alignment.CenterVertically) {
             RecipeTabLabel("Risultati", RecipeTab.RESULTS, state.selectedTab, onEvent)
@@ -92,10 +113,8 @@ fun RecipesScreen(
 
         if (state.isLoading) {
             LoadingState("Ricerca ricette...")
-        } else if (state.configMissing && state.selectedTab == RecipeTab.RESULTS) {
-            EmptyState("Spoonacular non configurato", "Aggiungi SPOONACULAR_API_KEY in local.properties per cercare ricette reali.")
-        } else if (state.errorMessage != null) {
-            ErrorState(state.errorMessage)
+        } else if (state.message != null && state.selectedTab == RecipeTab.RESULTS && visibleRecipes.isEmpty()) {
+            EmptyState("Ricette", state.message)
         } else if (visibleRecipes.isEmpty()) {
             EmptyState(
                 "Nessuna ricetta",
@@ -147,7 +166,7 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
                 shape = CircleShape,
                 color = Color.White
             ) {
-                IconButton(onClick = { onEvent(RecipesEvent.OnFavoriteClick(recipe.externalId)) }) {
+                IconButton(onClick = { onEvent(RecipesEvent.OnRecipeFavoriteClick(recipe.externalId)) }) {
                     Icon(
                         if (recipe.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Preferito",

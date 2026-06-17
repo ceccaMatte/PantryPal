@@ -1,0 +1,32 @@
+{
+  "externalId": "mock-frittata",
+  "title": "Frittata con Verdure",
+  "description": "Una ricetta veloce per consumare uova e verdure in scadenza.",
+  "preparationTimeMinutes": 18,
+  "servings": 2,
+  "imageUrl": null,
+  "sourceUrl": "https://example.com/frittata-verdure",
+  "ingredients": [
+    {
+      "originalName": "Uova",
+      "normalizedName": "uova",
+      "externalIngredientId": "mock-ing-eggs",
+      "amount": 4.0,
+      "unit": ""
+    },
+    {
+      "originalName": "Latte",
+      "normalizedName": "milk",
+      "externalIngredientId": "mock-ing-milk",
+      "amount": 2.0,
+      "unit": "cucchiai"
+    },
+    {
+      "originalName": "Verdure miste",
+      "normalizedName": "verdure miste",
+      "externalIngredientId": "mock-ing-vegetables",
+      "amount": 150.0,
+      "unit": "g"
+    }
+  ]
+}

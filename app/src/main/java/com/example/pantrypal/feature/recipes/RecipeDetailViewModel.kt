@@ -13,6 +13,7 @@ import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.RecipeAvailability
 import com.example.pantrypal.domain.model.RecipeAvailabilityStatus
 import com.example.pantrypal.domain.model.RecipeDetail
+import com.example.pantrypal.domain.model.RecipeDetailResult
 import com.example.pantrypal.domain.model.RecipeIngredientAvailabilityItem
 import com.example.pantrypal.domain.model.RecipeIngredientData
 import com.example.pantrypal.domain.model.StorageLocation
@@ -80,19 +81,33 @@ class RecipeDetailViewModel @Inject constructor(
 
     private suspend fun loadRecipe() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null, configMissing = false) }
-        val detail = recipeRepository.getRecipeDetail(externalId)
-        if (detail == null) {
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    configMissing = true,
-                    errorMessage = null
-                )
+        when (val result = recipeRepository.getRecipeDetailResult(externalId)) {
+            is RecipeDetailResult.Success -> {
+                currentRecipe = result.recipe
+                refreshAvailability()
             }
-            return
+            RecipeDetailResult.Empty -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Dettaglio ricetta non disponibile")
+            }
+            RecipeDetailResult.ConfigMissing -> _uiState.update {
+                it.copy(isLoading = false, configMissing = true, errorMessage = null)
+            }
+            RecipeDetailResult.QuotaExceeded -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Quota Spoonacular esaurita")
+            }
+            RecipeDetailResult.RateLimited -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Troppe richieste a Spoonacular")
+            }
+            RecipeDetailResult.NetworkError -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Connessione non disponibile")
+            }
+            RecipeDetailResult.InvalidResponse -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Risposta ricetta non valida")
+            }
+            RecipeDetailResult.GenericError -> _uiState.update {
+                it.copy(isLoading = false, errorMessage = "Errore durante il caricamento ricetta")
+            }
         }
-        currentRecipe = detail
-        refreshAvailability()
     }
 
     private suspend fun refreshAvailability() {

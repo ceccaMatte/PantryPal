@@ -2,6 +2,7 @@ package com.example.pantrypal.di
 
 import com.example.pantrypal.data.product.remote.OpenFoodFactsApi
 import com.example.pantrypal.data.recipe.remote.SpoonacularApi
+import com.example.pantrypal.core.network.SafeHttpLoggingInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -10,7 +11,6 @@ import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -35,7 +35,7 @@ object NetworkModule {
                         .build()
                 )
             }
-            .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+            .addInterceptor(SafeHttpLoggingInterceptor())
             .build()
 
     @Provides

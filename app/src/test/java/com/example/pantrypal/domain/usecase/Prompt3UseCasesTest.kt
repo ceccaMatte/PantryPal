@@ -23,9 +23,11 @@ import com.example.pantrypal.domain.model.LinkOrigin
 import com.example.pantrypal.domain.model.LinkRecipeIngredientToFoodCommand
 import com.example.pantrypal.domain.model.LotWithCategory
 import com.example.pantrypal.domain.model.PantryRow
+import com.example.pantrypal.domain.model.PantryPalApiMode
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeDetail
+import com.example.pantrypal.domain.model.RecipeDetailResult
 import com.example.pantrypal.domain.model.RecipeIngredientData
 import com.example.pantrypal.domain.model.RecipeIngredientLink
 import com.example.pantrypal.domain.model.RecipeSearchQuery
@@ -288,8 +290,11 @@ private class FakeRecipeRepository : RecipeRepository {
     val links = mutableListOf<RecipeIngredientLink>()
     private var nextLinkId = 100L
 
-    override suspend fun searchRecipes(query: RecipeSearchQuery): RecipeSearchResult = RecipeSearchResult.Empty
-    override suspend fun searchRecipesByIngredients(ingredients: List<String>): RecipeSearchResult = RecipeSearchResult.Empty
+    override val apiMode: PantryPalApiMode = PantryPalApiMode.MOCK
+    override suspend fun searchRecipes(query: RecipeSearchQuery, allowNetwork: Boolean): RecipeSearchResult = RecipeSearchResult.Empty
+    override suspend fun searchRecipesByIngredients(ingredients: List<String>, allowNetwork: Boolean): RecipeSearchResult = RecipeSearchResult.Empty
+    override suspend fun getRecipeDetailResult(externalId: String, allowNetwork: Boolean): RecipeDetailResult =
+        favorites[externalId]?.let(RecipeDetailResult::Success) ?: RecipeDetailResult.Empty
     override suspend fun getRecipeDetail(externalId: String): RecipeDetail? = favorites[externalId]
     override fun observeFavoriteRecipes(): Flow<List<RecipeCard>> = flowOf(favorites.values.map { it.toCard() })
     override suspend fun getFavoriteRecipeDetail(externalId: String): RecipeDetail? = favorites[externalId]

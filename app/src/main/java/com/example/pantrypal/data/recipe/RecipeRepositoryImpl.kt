@@ -1,25 +1,26 @@
 package com.example.pantrypal.data.recipe
 
 import androidx.room.withTransaction
-import com.example.pantrypal.BuildConfig
 import com.example.pantrypal.core.database.PantryPalDatabase
 import com.example.pantrypal.core.database.dao.RecipeDao
 import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
 import com.example.pantrypal.core.database.entity.FavoriteRecipeEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
-import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.data.pantry.toDomain
-import com.example.pantrypal.data.recipe.remote.SpoonacularApi
+import com.example.pantrypal.data.recipe.cache.RecipeCacheStore
+import com.example.pantrypal.data.recipe.source.MockRecipeRemoteDataSource
+import com.example.pantrypal.data.recipe.source.SpoonacularRecipeRemoteDataSource
 import com.example.pantrypal.domain.model.IngredientRelationType
 import com.example.pantrypal.domain.model.LinkOrigin
+import com.example.pantrypal.domain.model.PantryPalApiMode
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeDetail
+import com.example.pantrypal.domain.model.RecipeDetailResult
 import com.example.pantrypal.domain.model.RecipeIngredientData
 import com.example.pantrypal.domain.model.RecipeIngredientLink
 import com.example.pantrypal.domain.model.RecipeSearchQuery
 import com.example.pantrypal.domain.model.RecipeSearchResult
-import java.io.IOException
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,86 +33,88 @@ class RecipeRepositoryImpl @Inject constructor(
     private val database: PantryPalDatabase,
     private val recipeDao: RecipeDao,
     private val recipeIngredientLinkDao: RecipeIngredientLinkDao,
-    private val spoonacularApi: SpoonacularApi,
-    private val textNormalizer: TextNormalizer
+    private val apiModeProvider: ApiModeProvider,
+    private val recipeCacheStore: RecipeCacheStore,
+    private val spoonacularDataSource: SpoonacularRecipeRemoteDataSource,
+    private val mockDataSource: MockRecipeRemoteDataSource
 ) : RecipeRepository {
-    override suspend fun searchRecipes(query: RecipeSearchQuery): RecipeSearchResult {
+    override val apiMode: PantryPalApiMode
+        get() = apiModeProvider.mode
+
+    override suspend fun searchRecipes(
+        query: RecipeSearchQuery,
+        allowNetwork: Boolean
+    ): RecipeSearchResult {
         if (query.query.isBlank()) return RecipeSearchResult.Empty
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return RecipeSearchResult.ConfigMissing
-
-        return try {
-            val response = spoonacularApi.searchRecipes(query.query)
-            val recipes = response.results.map {
-                RecipeCard(
-                    externalId = it.id.toString(),
-                    title = it.title,
-                    imageUrl = it.image,
-                    preparationTimeMinutes = null,
-                    isFavorite = isFavorite(it.id.toString())
-                )
-            }
-            if (recipes.isEmpty()) RecipeSearchResult.Empty else RecipeSearchResult.Success(recipes)
-        } catch (_: IOException) {
-            RecipeSearchResult.Offline
-        } catch (_: Exception) {
-            RecipeSearchResult.Error
-        }
-    }
-
-    override suspend fun searchRecipesByIngredients(ingredients: List<String>): RecipeSearchResult {
-        if (ingredients.isEmpty()) return RecipeSearchResult.Empty
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return RecipeSearchResult.ConfigMissing
-
-        return try {
-            val recipes = spoonacularApi.findRecipesByIngredients(ingredients.joinToString(","))
-                .map {
-                    RecipeCard(
-                        externalId = it.id.toString(),
-                        title = it.title,
-                        imageUrl = it.image,
-                        preparationTimeMinutes = null,
-                        isFavorite = isFavorite(it.id.toString())
-                    )
-                }
-            if (recipes.isEmpty()) RecipeSearchResult.Empty else RecipeSearchResult.Success(recipes)
-        } catch (_: IOException) {
-            RecipeSearchResult.Offline
-        } catch (_: Exception) {
-            RecipeSearchResult.Error
-        }
-    }
-
-    override suspend fun getRecipeDetail(externalId: String): RecipeDetail? {
-        getFavoriteRecipeDetail(externalId)?.let { return it }
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return null
-
-        return try {
-            spoonacularApi.getRecipeInformation(externalId).let { dto ->
-                RecipeDetail(
-                    externalId = dto.id.toString(),
-                    title = dto.title,
-                    description = dto.summary?.replace("<[^>]+>".toRegex(), ""),
-                    preparationTimeMinutes = dto.readyInMinutes,
-                    servings = dto.servings,
-                    imageUrl = dto.image,
-                    sourceUrl = dto.sourceUrl,
-                    ingredients = dto.extendedIngredients.mapNotNull { ingredient ->
-                        val original = ingredient.original ?: ingredient.name ?: return@mapNotNull null
-                        val matchName = ingredient.name?.takeIf { it.isNotBlank() } ?: original
-                        RecipeIngredientData(
-                            originalName = original,
-                            normalizedName = textNormalizer.normalizeFoodText(matchName),
-                            externalIngredientId = ingredient.id?.toString(),
-                            amount = ingredient.amount,
-                            unit = ingredient.unit
-                        )
+        return when (apiMode) {
+            PantryPalApiMode.MOCK -> mockDataSource.searchRecipes(query.query).withFavoriteState()
+            PantryPalApiMode.CACHE_ONLY -> recipeCacheStore.getSearch(query.query)
+                ?.toSuccessWithFavorites()
+                ?: RecipeSearchResult.Empty
+            PantryPalApiMode.REAL -> {
+                recipeCacheStore.getSearch(query.query)?.let { return it.toSuccessWithFavorites() }
+                if (!allowNetwork) return RecipeSearchResult.Empty
+                when (val result = spoonacularDataSource.searchRecipes(query.query)) {
+                    is RecipeSearchResult.Success -> {
+                        recipeCacheStore.putSearch(query.query, result.recipes)
+                        result.withFavoriteState()
                     }
-                )
+                    else -> result
+                }
             }
-        } catch (_: Exception) {
-            null
         }
     }
+
+    override suspend fun searchRecipesByIngredients(
+        ingredients: List<String>,
+        allowNetwork: Boolean
+    ): RecipeSearchResult {
+        if (ingredients.isEmpty()) return RecipeSearchResult.Empty
+        return when (apiMode) {
+            PantryPalApiMode.MOCK -> mockDataSource.findRecipesByIngredients(ingredients).withFavoriteState()
+            PantryPalApiMode.CACHE_ONLY -> recipeCacheStore.getByIngredients(ingredients)
+                ?.toSuccessWithFavorites()
+                ?: RecipeSearchResult.Empty
+            PantryPalApiMode.REAL -> {
+                recipeCacheStore.getByIngredients(ingredients)?.let { return it.toSuccessWithFavorites() }
+                if (!allowNetwork) return RecipeSearchResult.Empty
+                when (val result = spoonacularDataSource.findRecipesByIngredients(ingredients)) {
+                    is RecipeSearchResult.Success -> {
+                        recipeCacheStore.putByIngredients(ingredients, result.recipes)
+                        result.withFavoriteState()
+                    }
+                    else -> result
+                }
+            }
+        }
+    }
+
+    override suspend fun getRecipeDetailResult(
+        externalId: String,
+        allowNetwork: Boolean
+    ): RecipeDetailResult {
+        getFavoriteRecipeDetail(externalId)?.let { return RecipeDetailResult.Success(it) }
+        return when (apiMode) {
+            PantryPalApiMode.MOCK -> mockDataSource.getRecipeDetail(externalId)
+            PantryPalApiMode.CACHE_ONLY -> recipeCacheStore.getDetail(externalId)
+                ?.let(RecipeDetailResult::Success)
+                ?: RecipeDetailResult.Empty
+            PantryPalApiMode.REAL -> {
+                recipeCacheStore.getDetail(externalId)?.let { return RecipeDetailResult.Success(it) }
+                if (!allowNetwork) return RecipeDetailResult.Empty
+                when (val result = spoonacularDataSource.getRecipeDetail(externalId)) {
+                    is RecipeDetailResult.Success -> {
+                        recipeCacheStore.putDetail(result.recipe)
+                        result
+                    }
+                    else -> result
+                }
+            }
+        }
+    }
+
+    override suspend fun getRecipeDetail(externalId: String): RecipeDetail? =
+        (getRecipeDetailResult(externalId) as? RecipeDetailResult.Success)?.recipe
 
     override fun observeFavoriteRecipes(): Flow<List<RecipeCard>> =
         recipeDao.observeFavoriteRecipeCards().map { cards ->
@@ -251,4 +254,14 @@ class RecipeRepositoryImpl @Inject constructor(
         }
     }
 
+    private suspend fun RecipeSearchResult.withFavoriteState(): RecipeSearchResult =
+        when (this) {
+            is RecipeSearchResult.Success -> recipes.toSuccessWithFavorites()
+            else -> this
+        }
+
+    private suspend fun List<RecipeCard>.toSuccessWithFavorites(): RecipeSearchResult.Success {
+        val favoriteIds = recipeDao.observeFavoriteRecipeCards().first().map { it.externalId }.toSet()
+        return RecipeSearchResult.Success(map { it.copy(isFavorite = it.externalId in favoriteIds) })
+    }
 }

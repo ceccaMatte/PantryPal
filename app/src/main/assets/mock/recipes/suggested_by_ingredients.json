@@ -1,0 +1,16 @@
+{
+  "recipes": [
+    {
+      "externalId": "mock-pasta",
+      "title": "Pasta al Pomodoro e Basilico",
+      "imageUrl": null,
+      "preparationTimeMinutes": 20
+    },
+    {
+      "externalId": "mock-frittata",
+      "title": "Frittata con Verdure",
+      "imageUrl": null,
+      "preparationTimeMinutes": 18
+    }
+  ]
+}

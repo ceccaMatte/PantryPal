@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.HomeOverview
+import com.example.pantrypal.domain.model.PantryPalApiMode
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeSearchResult
 import com.example.pantrypal.domain.model.StorageLocationFilter
@@ -15,6 +16,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -22,7 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     getHomeOverviewUseCase: GetHomeOverviewUseCase,
-    getHomeSuggestedRecipesUseCase: GetHomeSuggestedRecipesUseCase,
+    private val getHomeSuggestedRecipesUseCase: GetHomeSuggestedRecipesUseCase,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -34,12 +36,12 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             getHomeOverviewUseCase().collect { overview ->
-                _uiState.value = overview.toUiState(_uiState.value)
+                _uiState.value = overview.toUiState(_uiState.value, getHomeSuggestedRecipesUseCase.apiMode)
             }
         }
         viewModelScope.launch {
-            getHomeSuggestedRecipesUseCase().collect { result ->
-                _uiState.update { it.withSuggestedRecipes(result) }
+            getHomeSuggestedRecipesUseCase(allowNetwork = false).collect { result ->
+                _uiState.update { it.withSuggestedRecipes(result, getHomeSuggestedRecipesUseCase.apiMode) }
             }
         }
     }
@@ -55,13 +57,20 @@ class HomeViewModel @Inject constructor(
                     _effects.send(HomeEffect.NavigateToPantry(event.filter))
                 }
                 is HomeEvent.OnRecipeClick -> _effects.send(HomeEffect.NavigateToRecipeDetail(event.recipeId))
+                HomeEvent.OnGenerateRecipesClick -> generateRecipes()
                 HomeEvent.OnFabClick -> _effects.send(HomeEffect.OpenAddChoiceSheet)
             }
         }
     }
+
+    private suspend fun generateRecipes() {
+        _uiState.update { it.copy(isGeneratingRecipes = true, canGenerateRecipes = false) }
+        val result = getHomeSuggestedRecipesUseCase(allowNetwork = true).first()
+        _uiState.update { it.withSuggestedRecipes(result, getHomeSuggestedRecipesUseCase.apiMode).copy(isGeneratingRecipes = false) }
+    }
 }
 
-private fun HomeOverview.toUiState(previous: HomeUiState): HomeUiState =
+private fun HomeOverview.toUiState(previous: HomeUiState, apiMode: PantryPalApiMode): HomeUiState =
     previous.copy(
         username = username,
         totalPackages = totalPackages,
@@ -75,30 +84,58 @@ private fun HomeOverview.toUiState(previous: HomeUiState): HomeUiState =
                 expiringQuantity = it.expiringQuantity,
                 storageLocation = it.storageLocation
             )
-        }
+        },
+        canGenerateRecipes = totalPackages > 0 && (
+            previous.canGenerateRecipes ||
+                (apiMode == PantryPalApiMode.REAL && previous.suggestedRecipes.isEmpty())
+            )
     )
 
-private fun HomeUiState.withSuggestedRecipes(result: RecipeSearchResult): HomeUiState =
+private fun HomeUiState.withSuggestedRecipes(result: RecipeSearchResult, apiMode: PantryPalApiMode): HomeUiState =
     when (result) {
         is RecipeSearchResult.Success -> copy(
             suggestedRecipes = result.recipes.map { it.toHomeUi() },
-            suggestedRecipesMessage = "Dai tuoi ingredienti"
+            suggestedRecipesMessage = "Dai tuoi ingredienti",
+            canGenerateRecipes = false
         )
         RecipeSearchResult.ConfigMissing -> copy(
             suggestedRecipes = emptyList(),
-            suggestedRecipesMessage = "Configura Spoonacular per vedere suggerimenti"
+            suggestedRecipesMessage = "Configura Spoonacular per vedere suggerimenti",
+            canGenerateRecipes = false
         )
         RecipeSearchResult.Empty -> copy(
             suggestedRecipes = emptyList(),
-            suggestedRecipesMessage = "Aggiungi alimenti per ricevere suggerimenti"
+            suggestedRecipesMessage = if (apiMode == PantryPalApiMode.REAL && totalPackages > 0) {
+                "Nessuna cache suggerimenti disponibile"
+            } else {
+                "Aggiungi alimenti per ricevere suggerimenti"
+            },
+            canGenerateRecipes = apiMode == PantryPalApiMode.REAL && totalPackages > 0
         )
-        RecipeSearchResult.Error -> copy(
+        RecipeSearchResult.QuotaExceeded -> copy(
             suggestedRecipes = emptyList(),
-            suggestedRecipesMessage = "Ricette non disponibili al momento"
+            suggestedRecipesMessage = "Quota Spoonacular esaurita",
+            canGenerateRecipes = false
         )
-        RecipeSearchResult.Offline -> copy(
+        RecipeSearchResult.RateLimited -> copy(
             suggestedRecipes = emptyList(),
-            suggestedRecipesMessage = "Connessione assente per i suggerimenti"
+            suggestedRecipesMessage = "Troppe richieste a Spoonacular",
+            canGenerateRecipes = false
+        )
+        RecipeSearchResult.InvalidResponse -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Risposta suggerimenti non valida",
+            canGenerateRecipes = false
+        )
+        RecipeSearchResult.GenericError, RecipeSearchResult.Error -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Ricette non disponibili al momento",
+            canGenerateRecipes = apiMode == PantryPalApiMode.REAL && totalPackages > 0
+        )
+        RecipeSearchResult.NetworkError, RecipeSearchResult.Offline -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Connessione assente per i suggerimenti",
+            canGenerateRecipes = apiMode == PantryPalApiMode.REAL && totalPackages > 0
         )
     }
 

@@ -1,0 +1,32 @@
+{
+  "externalId": "mock-quinoa",
+  "title": "Bowl di Quinoa e Avocado",
+  "description": "Un piatto leggero e colorato, pensato per usare verdure e cereali disponibili.",
+  "preparationTimeMinutes": 25,
+  "servings": 2,
+  "imageUrl": null,
+  "sourceUrl": "https://example.com/quinoa-avocado",
+  "ingredients": [
+    {
+      "originalName": "Quinoa",
+      "normalizedName": "quinoa",
+      "externalIngredientId": "mock-ing-quinoa",
+      "amount": 160.0,
+      "unit": "g"
+    },
+    {
+      "originalName": "Avocado",
+      "normalizedName": "avocado",
+      "externalIngredientId": "mock-ing-avocado",
+      "amount": 1.0,
+      "unit": ""
+    },
+    {
+      "originalName": "Olio",
+      "normalizedName": "oil",
+      "externalIngredientId": "mock-ing-oil",
+      "amount": 2.0,
+      "unit": "cucchiai"
+    }
+  ]
+}

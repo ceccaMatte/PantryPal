@@ -1,6 +1,7 @@
 package com.example.pantrypal.core.database
 
 import androidx.room.TypeConverter
+import com.example.pantrypal.domain.model.ApiCacheType
 import com.example.pantrypal.domain.model.CategoryOrigin
 import com.example.pantrypal.domain.model.IngredientRelationType
 import com.example.pantrypal.domain.model.LinkOrigin
@@ -51,4 +52,10 @@ class PantryPalTypeConverters {
 
     @TypeConverter
     fun stringToRelationType(value: String?): IngredientRelationType? = value?.let(IngredientRelationType::valueOf)
+
+    @TypeConverter
+    fun apiCacheTypeToString(value: ApiCacheType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToApiCacheType(value: String?): ApiCacheType? = value?.let(ApiCacheType::valueOf)
 }

@@ -13,6 +13,8 @@ data class HomeUiState(
     val expiringFoods: List<HomeExpiringFoodUi> = emptyList(),
     val suggestedRecipes: List<HomeRecipeUi> = emptyList(),
     val suggestedRecipesMessage: String = "Aggiungi alimenti per ricevere suggerimenti",
+    val canGenerateRecipes: Boolean = false,
+    val isGeneratingRecipes: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -34,6 +36,7 @@ sealed interface HomeEvent {
     data class OnExpiringFoodClick(val categoryId: Long) : HomeEvent
     data class OnStorageStatClick(val filter: StorageLocationFilter) : HomeEvent
     data class OnRecipeClick(val recipeId: String) : HomeEvent
+    data object OnGenerateRecipesClick : HomeEvent
     data object OnFabClick : HomeEvent
 }
 

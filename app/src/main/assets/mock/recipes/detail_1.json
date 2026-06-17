@@ -1,0 +1,32 @@
+{
+  "externalId": "mock-pasta",
+  "title": "Pasta al Pomodoro e Basilico",
+  "description": "Un classico semplice con ingredienti freschi e profumati.",
+  "preparationTimeMinutes": 20,
+  "servings": 2,
+  "imageUrl": null,
+  "sourceUrl": "https://example.com/pasta-pomodoro",
+  "ingredients": [
+    {
+      "originalName": "Pasta",
+      "normalizedName": "pasta",
+      "externalIngredientId": "mock-ing-pasta",
+      "amount": 200.0,
+      "unit": "g"
+    },
+    {
+      "originalName": "Pomodori",
+      "normalizedName": "pomodori",
+      "externalIngredientId": "mock-ing-tomato",
+      "amount": 250.0,
+      "unit": "g"
+    },
+    {
+      "originalName": "Basilico fresco",
+      "normalizedName": "basilico fresco",
+      "externalIngredientId": "mock-ing-basil",
+      "amount": 1.0,
+      "unit": "mazzetto"
+    }
+  ]
+}

@@ -34,6 +34,11 @@ android {
             "SPOONACULAR_API_KEY",
             "\"${localProperties.getProperty("SPOONACULAR_API_KEY", "")}\""
         )
+        buildConfigField(
+            "String",
+            "PANTRYPAL_API_MODE",
+            "\"${localProperties.getProperty("PANTRYPAL_API_MODE", "MOCK")}\""
+        )
     }
 
     buildTypes {

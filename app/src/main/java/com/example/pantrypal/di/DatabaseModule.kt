@@ -36,4 +36,7 @@ object DatabaseModule {
 
     @Provides
     fun provideRecipeIngredientLinkDao(database: PantryPalDatabase) = database.recipeIngredientLinkDao()
+
+    @Provides
+    fun provideApiCacheDao(database: PantryPalDatabase) = database.apiCacheDao()
 }

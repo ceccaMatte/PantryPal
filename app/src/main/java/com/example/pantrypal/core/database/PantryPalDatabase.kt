@@ -3,11 +3,13 @@ package com.example.pantrypal.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.pantrypal.core.database.dao.ApiCacheDao
 import com.example.pantrypal.core.database.dao.BarcodeProductLinkDao
 import com.example.pantrypal.core.database.dao.ExpiryLotDao
 import com.example.pantrypal.core.database.dao.FoodCategoryDao
 import com.example.pantrypal.core.database.dao.RecipeDao
 import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
+import com.example.pantrypal.core.database.entity.ApiCacheEntryEntity
 import com.example.pantrypal.core.database.entity.BarcodeProductLinkEntity
 import com.example.pantrypal.core.database.entity.ExpiryLotEntity
 import com.example.pantrypal.core.database.entity.FavoriteRecipeEntity
@@ -22,7 +24,8 @@ import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
         BarcodeProductLinkEntity::class,
         RecipeIngredientLinkEntity::class,
         FavoriteRecipeEntity::class,
-        RecipeIngredientEntity::class
+        RecipeIngredientEntity::class,
+        ApiCacheEntryEntity::class
     ],
     version = 1,
     exportSchema = true
@@ -34,4 +37,5 @@ abstract class PantryPalDatabase : RoomDatabase() {
     abstract fun barcodeProductLinkDao(): BarcodeProductLinkDao
     abstract fun recipeDao(): RecipeDao
     abstract fun recipeIngredientLinkDao(): RecipeIngredientLinkDao
+    abstract fun apiCacheDao(): ApiCacheDao
 }

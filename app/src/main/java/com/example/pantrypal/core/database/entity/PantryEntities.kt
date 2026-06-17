@@ -9,6 +9,7 @@ import com.example.pantrypal.domain.model.IngredientRelationType
 import com.example.pantrypal.domain.model.LinkOrigin
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocation
+import com.example.pantrypal.domain.model.ApiCacheType
 import java.time.Instant
 import java.time.LocalDate
 
@@ -164,4 +165,21 @@ data class RecipeIngredientEntity(
     val externalIngredientId: String?,
     val amount: Double?,
     val unit: String?
+)
+
+@Entity(
+    tableName = "api_cache_entries",
+    indices = [
+        Index(value = ["cacheKey"], unique = true),
+        Index(value = ["type"])
+    ]
+)
+data class ApiCacheEntryEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val cacheKey: String,
+    val type: ApiCacheType,
+    val payloadJson: String,
+    val createdAt: Instant,
+    val expiresAt: Instant
 )
