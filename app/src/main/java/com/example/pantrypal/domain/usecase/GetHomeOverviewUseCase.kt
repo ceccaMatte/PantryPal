@@ -5,10 +5,8 @@ import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.HomeExpiringFood
 import com.example.pantrypal.domain.model.HomeOverview
 import com.example.pantrypal.domain.model.LotWithCategory
-import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocation
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -24,14 +22,7 @@ class GetHomeOverviewUseCase @Inject constructor(
         ) { lots, settings ->
             val today = LocalDate.now()
             val expiring = lots
-                .filter { lot ->
-                    val days = ChronoUnit.DAYS.between(today, lot.expirationDate)
-                    val threshold = when (lot.perishability) {
-                        PerishabilityType.FRESH -> settings.freshNotificationDays
-                        PerishabilityType.LONG_LIFE -> settings.longLifeNotificationDays
-                    }
-                    days <= threshold
-                }
+                .filter { lot -> isLotInExpirationThreshold(lot, settings, today) }
                 .groupBy { it.categoryId }
                 .values
                 .map { categoryLots ->

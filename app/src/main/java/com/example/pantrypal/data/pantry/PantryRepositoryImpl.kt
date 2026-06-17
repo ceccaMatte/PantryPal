@@ -12,6 +12,7 @@ import com.example.pantrypal.core.database.entity.FoodCategoryEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
 import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.BarcodeProductDraft
 import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.CategoryOrigin
@@ -152,8 +153,7 @@ class PantryRepositoryImpl @Inject constructor(
 
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
-        expirationDate: LocalDate,
-        quantity: Int,
+        lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft?
     ): Long {
         val now = Instant.now()
@@ -178,7 +178,13 @@ class PantryRepositoryImpl @Inject constructor(
                     )
                 }
             }
-            upsertExpiryLotInTransaction(categoryId, expirationDate, quantity, now)
+            lots
+                .filter { it.quantity > 0 && it.expirationDate != null }
+                .groupBy { requireNotNull(it.expirationDate) }
+                .mapValues { (_, dateLots) -> dateLots.sumOf { it.quantity } }
+                .forEach { (expirationDate, quantity) ->
+                    upsertExpiryLotInTransaction(categoryId, expirationDate, quantity, now)
+                }
             barcodeProductDraft?.let { draft ->
                 barcodeProductLinkDao.upsert(
                     BarcodeProductLinkEntity(

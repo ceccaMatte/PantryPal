@@ -41,7 +41,10 @@ data class CachedRecipeIngredientPayload(
     val normalizedName: String,
     val externalIngredientId: String? = null,
     val amount: Double? = null,
-    val unit: String? = null
+    val unit: String? = null,
+    val cleanName: String = originalName,
+    val displayAmount: String? = null,
+    val originalText: String? = originalName
 )
 
 fun RecipeCard.toCachePayload(): CachedRecipeCardPayload =
@@ -76,7 +79,10 @@ fun RecipeDetail.toCachePayload(): CachedRecipeDetailPayload =
                 normalizedName = it.normalizedName,
                 externalIngredientId = it.externalIngredientId,
                 amount = it.amount,
-                unit = it.unit
+                unit = it.unit,
+                cleanName = it.cleanName,
+                displayAmount = it.displayAmount,
+                originalText = it.originalText
             )
         }
     )
@@ -96,7 +102,10 @@ fun CachedRecipeDetailPayload.toDomain(): RecipeDetail =
                 normalizedName = it.normalizedName,
                 externalIngredientId = it.externalIngredientId,
                 amount = it.amount,
-                unit = it.unit
+                unit = it.unit,
+                cleanName = it.cleanName,
+                displayAmount = it.displayAmount,
+                originalText = it.originalText
             )
         }
     )

@@ -2,6 +2,7 @@ package com.example.pantrypal.domain.usecase
 
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.BarcodeProductDraft
 import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
@@ -92,8 +93,7 @@ private class FakePantryRepositoryForFoodDetail : PantryRepository {
     override suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long = 0
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
-        expirationDate: LocalDate,
-        quantity: Int,
+        lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft?
     ): Long = 0
     override suspend fun saveFoodDetailChanges(draft: FoodDetailDraft) {

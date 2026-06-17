@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Restaurant
@@ -70,10 +71,12 @@ fun ManualAddScreen(
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedLotId by remember { mutableStateOf<Long?>(null) }
 
     if (showDatePicker) {
+        val selectedLot = state.lots.firstOrNull { it.id == selectedLotId }
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.expirationDate?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+            initialSelectedDateMillis = selectedLot?.expirationDate?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -81,16 +84,22 @@ fun ManualAddScreen(
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
-                            onEvent(ManualAddEvent.OnExpirationDateSelected(millis.toLocalDate()))
+                            selectedLotId?.let { lotId ->
+                                onEvent(ManualAddEvent.OnExpirationDateSelected(lotId, millis.toLocalDate()))
+                            }
                         }
                         showDatePicker = false
+                        selectedLotId = null
                     }
                 ) {
                     Text("Conferma")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(onClick = {
+                    showDatePicker = false
+                    selectedLotId = null
+                }) {
                     Text("Annulla")
                 }
             }
@@ -197,54 +206,69 @@ fun ManualAddScreen(
             }
         }
 
-        SectionLabel("SCADENZA")
-
-        PantryCard {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-                Icon(
-                    Icons.Default.CalendarMonth,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(58.dp)
-                        .background(PantryColors.Green50, RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    tint = PantryColors.Green700
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        state.expirationDate?.format(DateFormatter) ?: "Scegli data",
-                        style = PantryTypography.titleLarge
-                    )
-                    Text(
-                        state.expirationDate?.toRelativeLabel().orEmpty(),
-                        color = PantryColors.WarningText,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (SaveAddedFoodValidationError.DATE_REQUIRED in state.validationErrors) {
-                        Text("Seleziona una data", color = PantryColors.Error, style = PantryTypography.labelLarge)
-                    }
-                }
-                Button(
-                    onClick = { showDatePicker = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text("Data")
-                }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("SCADENZE")
+            TextButton(onClick = { onEvent(ManualAddEvent.OnAddLotClick) }) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Text("Aggiungi")
             }
-            Spacer(Modifier.height(PantrySpacing.lg))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    Text("Quantita", style = PantryTypography.titleMedium)
-                    if (SaveAddedFoodValidationError.QUANTITY_INVALID in state.validationErrors) {
-                        Text("Quantita non valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
+        }
+        if (SaveAddedFoodValidationError.LOTS_REQUIRED in state.validationErrors) {
+            Text("Aggiungi almeno una scadenza valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
+        }
+        if (SaveAddedFoodValidationError.DATE_REQUIRED in state.validationErrors) {
+            Text("Seleziona una data per ogni scadenza", color = PantryColors.Error, style = PantryTypography.labelLarge)
+        }
+        if (SaveAddedFoodValidationError.QUANTITY_INVALID in state.validationErrors) {
+            Text("Quantita non valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
+        }
+
+        state.lots.forEach { lot ->
+            PantryCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(PantryColors.Green50, RoundedCornerShape(14.dp))
+                            .padding(12.dp),
+                        tint = PantryColors.Green700
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            lot.expirationDate?.format(DateFormatter) ?: "Scegli data",
+                            style = PantryTypography.titleMedium
+                        )
+                        Text(
+                            lot.expirationDate?.toRelativeLabel().orEmpty(),
+                            color = PantryColors.WarningText,
+                            fontWeight = FontWeight.Bold,
+                            style = PantryTypography.labelLarge
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            selectedLotId = lot.id
+                            showDatePicker = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Data")
                     }
                 }
-                Stepper(
-                    value = state.quantity,
-                    onMinus = { onEvent(ManualAddEvent.OnQuantityMinus) },
-                    onPlus = { onEvent(ManualAddEvent.OnQuantityPlus) }
-                )
+                Spacer(Modifier.height(PantrySpacing.md))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { onEvent(ManualAddEvent.OnRemoveLotClick(lot.id)) }) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Rimuovi scadenza", tint = PantryColors.Error)
+                    }
+                    Stepper(
+                        value = lot.quantity,
+                        onMinus = { onEvent(ManualAddEvent.OnQuantityMinus(lot.id)) },
+                        onPlus = { onEvent(ManualAddEvent.OnQuantityPlus(lot.id)) }
+                    )
+                }
             }
         }
 

@@ -2,6 +2,7 @@ package com.example.pantrypal.data.pantry
 
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.BarcodeProductDraft
 import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.FoodCategory
@@ -28,8 +29,7 @@ interface PantryRepository {
     suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long
     suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
-        expirationDate: LocalDate,
-        quantity: Int,
+        lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft? = null
     ): Long
     suspend fun saveFoodDetailChanges(draft: FoodDetailDraft)

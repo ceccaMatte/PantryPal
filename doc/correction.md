@@ -8,8 +8,10 @@
 8) nella sezione utente se clicco modalità chiaro scuso o auto la ui dell'app non cambia mai questo è un problema
 9) nella sezione in scadenza in dispesa devi mostrare solo gli alimenit che superano la dead line di notifica non sempre tutti gli ingredineti es se io ho il pollo che scade tra 1 settimana ed è un alimenot fresco ed io ho la dead line di scadenza  a 2 giorni dalla scadenza lo devo mostrare tra glialimenit in scadenza solo se i giorni che mancano alla scadenza sono <= 2 quidni se sono a 3 giorni dalla scadenz anon lo mostro se sono a 2hiorni 1 giorno e è opassata la dead line allora lo mostro
 10) nella home le icone per frigo freezer e dispensa è sempre la stessa del figo deve cambiare a seconda del tipo di categoria deve esserci l'icona corretta
-11) la sezione del dettgalio ricetta è tutta da sistemare
+11) in profilo il nome utente è precompilato pe mario non va bene deve esserci un place holder inserire nome o solo nome e poi qundo sscrvo deve essere scitrto il mio non  non devo cancellare quello precedente
+12) la sezione del dettgalio ricetta è tutta da sistemare
 - 1 qunaod apro un ingrediente mi apre un modal invece di aprimi sotto in maniera ocntestuale
 - 2 dalla ricetta non estra il nome dell'alimento ma mette nome + dosi in questo modo non riuscirò mail a fare il match tra cio che hai in dispensa e cio ce devi comprare per chè io faccio un mathc a parolo e se il nome dell'alimenot è nome + quantità non macharà mia
 - 3 poi in fondo alla pagina del dettglio ricetta c'è un pulksante ce l'ho - segnai in dispensa che no ha senso buttato loi a casio non ha contente ne nulla è da cavare
 - 4 poi la descrizione della ricetta è molto lunga quidni va mostarta un po' poi clicppata con i ... e ci deve essere mostra altro e nascondi in modo tale che l'unte possa scegleire se leggerla o meno 
+- nella card delle ricette ci son i badge che ti dicono quanti ingredineti hai e quanti ne devi comparare che danno sempre 0 quidni no c'è collegato il counter

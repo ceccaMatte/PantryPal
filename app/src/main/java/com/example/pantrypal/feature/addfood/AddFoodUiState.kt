@@ -30,10 +30,15 @@ data class ManualAddUiState(
     val recognizedProductLabel: String? = null,
     val perishability: PerishabilityType = PerishabilityType.FRESH,
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,
-    val expirationDate: LocalDate? = null,
-    val quantity: Int = 1,
+    val lots: List<ManualAddLotUi> = listOf(ManualAddLotUi(id = 1)),
     val validationErrors: Set<SaveAddedFoodValidationError> = emptySet(),
     val isSaving: Boolean = false
+)
+
+data class ManualAddLotUi(
+    val id: Long,
+    val expirationDate: LocalDate? = null,
+    val quantity: Int = 1
 )
 
 data class FoodSuggestionUi(
@@ -60,9 +65,11 @@ sealed interface ManualAddEvent {
     data class OnSuggestionSelected(val suggestion: FoodSuggestionUi) : ManualAddEvent
     data class OnPerishabilitySelected(val perishability: PerishabilityType) : ManualAddEvent
     data class OnStorageLocationSelected(val storageLocation: StorageLocation) : ManualAddEvent
-    data class OnExpirationDateSelected(val date: LocalDate) : ManualAddEvent
-    data object OnQuantityMinus : ManualAddEvent
-    data object OnQuantityPlus : ManualAddEvent
+    data object OnAddLotClick : ManualAddEvent
+    data class OnRemoveLotClick(val lotId: Long) : ManualAddEvent
+    data class OnExpirationDateSelected(val lotId: Long, val date: LocalDate) : ManualAddEvent
+    data class OnQuantityMinus(val lotId: Long) : ManualAddEvent
+    data class OnQuantityPlus(val lotId: Long) : ManualAddEvent
     data object OnSaveClick : ManualAddEvent
 }
 

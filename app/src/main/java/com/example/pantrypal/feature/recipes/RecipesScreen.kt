@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
 import com.example.pantrypal.core.designsystem.FoodChip
@@ -64,7 +65,7 @@ fun RecipesScreen(
             .padding(horizontal = 20.dp, vertical = 28.dp),
         verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
     ) {
-        Text("Ricette", style = PantryTypography.displaySmall, color = PantryColors.Green700)
+        Text("Ricette", style = PantryTypography.headlineMedium, color = PantryColors.Green700)
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = state.searchQuery,
@@ -155,7 +156,7 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(190.dp)
+                .height(150.dp)
                 .background(recipeTint(recipe.externalId), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
         ) {
             PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
@@ -175,13 +176,17 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(PantrySpacing.lg))
-        Text(recipe.title, style = PantryTypography.titleLarge)
-        Text(recipe.description, color = PantryColors.Muted)
+        Spacer(Modifier.height(PantrySpacing.md))
+        Text(recipe.title, style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(recipe.description, color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(PantrySpacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
-            FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline)
-            FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info)
+            if (recipe.presentCount != null && recipe.missingCount != null) {
+                FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline)
+                FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info)
+            } else {
+                FoodChip(label = "Da collegare", icon = Icons.Default.Info)
+            }
         }
         Spacer(Modifier.height(PantrySpacing.md))
         Button(

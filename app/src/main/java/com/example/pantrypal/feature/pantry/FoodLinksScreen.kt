@@ -26,11 +26,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
@@ -86,8 +88,8 @@ fun FoodLinksScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
                         PlaceholderImageBox(modifier = Modifier.size(76.dp), background = Color(0xFFF2E7D8))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(product.productName, style = PantryTypography.titleLarge)
-                            Text(product.subtitle, color = PantryColors.Muted)
+                            Text(product.productName, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(product.subtitle, color = PantryColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -126,6 +128,15 @@ fun FoodLinksScreen(
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Aggiungi un nome...") },
             leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700) },
+            trailingIcon = {
+                TextButton(
+                    onClick = { onEvent(FoodDetailEvent.OnAddAliasClick) },
+                    enabled = state.aliasDraft.isNotBlank()
+                ) {
+                    Text("Aggiungi", maxLines = 1)
+                }
+            },
+            singleLine = true,
             shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PantryColors.Line,
@@ -134,15 +145,6 @@ fun FoodLinksScreen(
                 unfocusedContainerColor = PantryColors.Card
             )
         )
-        PantryCard(
-            containerColor = PantryColors.Green50,
-            onClick = { onEvent(FoodDetailEvent.OnAddAliasClick) }
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700)
-                Text("Aggiungi alias", color = PantryColors.Green700, fontWeight = FontWeight.Bold)
-            }
-        }
         Spacer(Modifier.height(104.dp))
     }
 }

@@ -144,8 +144,8 @@ private fun RecipeCard.toUi(isFavorite: Boolean = this.isFavorite): RecipeCardUi
         title = title,
         description = "Ricetta pronta da collegare agli ingredienti in dispensa.",
         readyInMinutes = preparationTimeMinutes ?: 20,
-        presentCount = 0,
-        missingCount = 0,
+        presentCount = null,
+        missingCount = null,
         isFavorite = isFavorite
     )
 

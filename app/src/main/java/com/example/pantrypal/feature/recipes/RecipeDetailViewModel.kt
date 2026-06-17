@@ -64,9 +64,12 @@ class RecipeDetailViewModel @Inject constructor(
                 RecipeDetailEvent.OnBackClick -> _effects.send(RecipeDetailEffect.NavigateBack)
                 RecipeDetailEvent.OnFavoriteClick -> toggleFavorite()
                 RecipeDetailEvent.OnShareClick -> shareShoppingList()
-                is RecipeDetailEvent.OnIngredientClick -> openIngredientSheet(event.ingredientKey)
+                RecipeDetailEvent.OnSummaryToggleClick -> _uiState.update {
+                    it.copy(isSummaryExpanded = !it.isSummaryExpanded)
+                }
+                is RecipeDetailEvent.OnIngredientClick -> toggleIngredientExpansion(event.ingredientKey)
                 RecipeDetailEvent.OnDismissIngredientSheet -> _uiState.update {
-                    it.copy(selectedIngredient = null, linkSuggestions = emptyList(), linkQuery = "")
+                    it.copy(expandedIngredientKey = null, linkSuggestions = emptyList(), linkQuery = "")
                 }
                 is RecipeDetailEvent.OnLinkQueryChange -> {
                     _uiState.update { it.copy(linkQuery = event.value) }
@@ -118,7 +121,8 @@ class RecipeDetailViewModel @Inject constructor(
             availability = requireNotNull(currentAvailability),
             isFavorite = isFavorite,
             forcePresentKeys = forcePresentKeys,
-            forceMissingKeys = forceMissingKeys
+            forceMissingKeys = forceMissingKeys,
+            previousState = _uiState.value
         )
     }
 
@@ -128,12 +132,16 @@ class RecipeDetailViewModel @Inject constructor(
         _uiState.update { it.copy(isFavorite = isFavorite) }
     }
 
-    private suspend fun openIngredientSheet(key: String) {
+    private suspend fun toggleIngredientExpansion(key: String) {
         val ingredient = (_uiState.value.presentIngredients + _uiState.value.missingIngredients)
             .firstOrNull { it.key == key } ?: return
+        if (_uiState.value.expandedIngredientKey == key) {
+            _uiState.update { it.copy(expandedIngredientKey = null, linkSuggestions = emptyList(), linkQuery = "") }
+            return
+        }
         _uiState.update {
             it.copy(
-                selectedIngredient = ingredient,
+                expandedIngredientKey = ingredient.key,
                 linkQuery = ingredient.name,
                 linkSuggestions = emptyList()
             )
@@ -142,7 +150,7 @@ class RecipeDetailViewModel @Inject constructor(
     }
 
     private suspend fun refreshLinkSuggestions(query: String) {
-        val selected = _uiState.value.selectedIngredient ?: return
+        val selected = currentExpandedIngredient() ?: return
         val effectiveQuery = query.ifBlank { selected.name }
         val sources = pantryRepository.getFoodCategoryMatchSources(effectiveQuery)
         val matches = foodCategoryMatcher.match(effectiveQuery, sources).map {
@@ -157,7 +165,7 @@ class RecipeDetailViewModel @Inject constructor(
     }
 
     private suspend fun linkSelectedIngredient(suggestion: RecipeFoodSuggestionUi) {
-        val selected = _uiState.value.selectedIngredient ?: return
+        val selected = currentExpandedIngredient() ?: return
         val categoryId = if (suggestion.isCreateNew) {
             createCategoryForIngredient(selected)
         } else {
@@ -173,7 +181,7 @@ class RecipeDetailViewModel @Inject constructor(
                 replaceLinkId = selected.replaceLinkId
             )
         )
-        _uiState.update { it.copy(selectedIngredient = null, linkSuggestions = emptyList(), linkQuery = "") }
+        _uiState.update { it.copy(expandedIngredientKey = null, linkSuggestions = emptyList(), linkQuery = "") }
         refreshAvailability()
     }
 
@@ -191,7 +199,7 @@ class RecipeDetailViewModel @Inject constructor(
     }
 
     private fun overrideSelected(present: Boolean) {
-        val selected = _uiState.value.selectedIngredient ?: return
+        val selected = currentExpandedIngredient() ?: return
         if (present) {
             forcePresentKeys += selected.key
             forceMissingKeys -= selected.key
@@ -204,9 +212,16 @@ class RecipeDetailViewModel @Inject constructor(
                 availability = currentAvailability ?: RecipeAvailability(emptyList()),
                 isFavorite = _uiState.value.isFavorite,
                 forcePresentKeys = forcePresentKeys,
-                forceMissingKeys = forceMissingKeys
+                forceMissingKeys = forceMissingKeys,
+                previousState = _uiState.value
             )
         }
+    }
+
+    private fun currentExpandedIngredient(): RecipeIngredientUi? {
+        val key = _uiState.value.expandedIngredientKey ?: return null
+        return (_uiState.value.presentIngredients + _uiState.value.missingIngredients)
+            .firstOrNull { it.key == key }
     }
 
     private suspend fun shareShoppingList() {
@@ -240,7 +255,8 @@ private fun RecipeDetail.toUi(
     availability: RecipeAvailability,
     isFavorite: Boolean,
     forcePresentKeys: Set<String>,
-    forceMissingKeys: Set<String>
+    forceMissingKeys: Set<String>,
+    previousState: RecipeDetailUiState? = null
 ): RecipeDetailUiState {
     val ingredients = availability.items.mapIndexed { index, item ->
         item.toUi(index)
@@ -262,6 +278,10 @@ private fun RecipeDetail.toUi(
         isFavorite = isFavorite,
         presentIngredients = ingredients.filter { it.isPresent },
         missingIngredients = ingredients.filterNot { it.isPresent },
+        isSummaryExpanded = previousState?.isSummaryExpanded ?: false,
+        expandedIngredientKey = previousState?.expandedIngredientKey,
+        linkQuery = previousState?.linkQuery.orEmpty(),
+        linkSuggestions = previousState?.linkSuggestions.orEmpty(),
         isLoading = false,
         configMissing = false,
         errorMessage = null
@@ -275,7 +295,7 @@ private fun RecipeIngredientAvailabilityItem.toUi(index: Int): RecipeIngredientU
     val isPresent = status == RecipeAvailabilityStatus.IN_PANTRY
     return RecipeIngredientUi(
         key = key,
-        name = data.originalName,
+        name = data.cleanName,
         amountLabel = data.amountLabel(),
         pantryMatchLabel = if (isPresent) linkedLabel ?: "In dispensa" else linkedLabel?.let { "Collegato a $it" },
         isPresent = isPresent,
@@ -286,6 +306,7 @@ private fun RecipeIngredientAvailabilityItem.toUi(index: Int): RecipeIngredientU
 }
 
 private fun RecipeIngredientData.amountLabel(): String =
+    displayAmount?.takeIf { it.isNotBlank() } ?:
     listOfNotNull(
         amount?.let { amount ->
             if (amount % 1.0 == 0.0) amount.toInt().toString() else amount.toString()

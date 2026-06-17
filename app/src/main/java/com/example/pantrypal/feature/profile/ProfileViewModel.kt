@@ -45,7 +45,7 @@ class ProfileViewModel @Inject constructor(
 
 private fun UserSettings.toUi(): ProfileUiState =
     ProfileUiState(
-        username = username.ifBlank { "Marco" },
+        username = username,
         language = language,
         theme = theme,
         expirationNotificationsEnabled = expirationNotificationsEnabled,

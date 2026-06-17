@@ -11,13 +11,15 @@ class SaveAddedFoodUseCase @Inject constructor(
     private val pantryRepository: PantryRepository
 ) {
     suspend operator fun invoke(command: SaveAddedFoodCommand): SaveAddedFoodResult {
+        val validLots = command.lots.filter { it.quantity > 0 }
         val errors = buildSet {
             val selection = command.categorySelection
             if (selection == null || selection is AddFoodCategorySelection.New && selection.name.isBlank()) {
                 add(SaveAddedFoodValidationError.CATEGORY_REQUIRED)
             }
-            if (command.expirationDate == null) add(SaveAddedFoodValidationError.DATE_REQUIRED)
-            if (command.quantity <= 0) add(SaveAddedFoodValidationError.QUANTITY_INVALID)
+            if (validLots.isEmpty()) add(SaveAddedFoodValidationError.LOTS_REQUIRED)
+            if (validLots.any { it.expirationDate == null }) add(SaveAddedFoodValidationError.DATE_REQUIRED)
+            if (command.lots.any { it.quantity < 0 }) add(SaveAddedFoodValidationError.QUANTITY_INVALID)
         }
         if (errors.isNotEmpty()) return SaveAddedFoodResult.ValidationError(errors)
 
@@ -25,8 +27,7 @@ class SaveAddedFoodUseCase @Inject constructor(
             SaveAddedFoodResult.Success(
                 pantryRepository.saveAddedFood(
                     categorySelection = requireNotNull(command.categorySelection),
-                    expirationDate = requireNotNull(command.expirationDate),
-                    quantity = command.quantity,
+                    lots = validLots,
                     barcodeProductDraft = command.barcodeProductDraft
                 )
             )

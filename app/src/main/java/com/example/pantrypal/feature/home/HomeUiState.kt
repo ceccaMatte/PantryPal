@@ -29,13 +29,17 @@ data class HomeRecipeUi(
     val externalId: String,
     val title: String,
     val subtitle: String,
-    val timeLabel: String
+    val timeLabel: String,
+    val isFavorite: Boolean
 )
 
 sealed interface HomeEvent {
     data class OnExpiringFoodClick(val categoryId: Long) : HomeEvent
+    data object OnExpiringCardClick : HomeEvent
+    data object OnPantrySummaryClick : HomeEvent
     data class OnStorageStatClick(val filter: StorageLocationFilter) : HomeEvent
     data class OnRecipeClick(val recipeId: String) : HomeEvent
+    data class OnSuggestedRecipeFavoriteClick(val recipeId: String) : HomeEvent
     data object OnGenerateRecipesClick : HomeEvent
     data object OnFabClick : HomeEvent
 }

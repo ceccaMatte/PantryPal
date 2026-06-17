@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
@@ -66,9 +67,10 @@ fun ProfileScreen(
                 value = state.username,
                 onValueChange = { onEvent(ProfileEvent.OnUsernameChange(it)) },
                 modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Inserisci nome", color = PantryColors.Muted) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PantryColors.Green700) },
                 trailingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PantryColors.Muted) },
-                textStyle = PantryTypography.titleLarge,
+                textStyle = PantryTypography.titleMedium,
                 singleLine = true,
                 shape = RoundedCornerShape(18.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -92,12 +94,12 @@ fun ProfileScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
                 IconBadge(Icons.Default.DarkMode)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Tema", style = PantryTypography.titleLarge)
+                    Text("Tema", style = PantryTypography.titleMedium)
                     Spacer(Modifier.height(PantrySpacing.md))
                     Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
-                        ThemeChip("Chiaro", AppTheme.LIGHT, state.theme, Icons.Default.WbSunny, onEvent, Modifier.weight(1f))
-                        ThemeChip("Scuro", AppTheme.DARK, state.theme, Icons.Default.DarkMode, onEvent, Modifier.weight(1f))
-                        ThemeChip("Auto", AppTheme.SYSTEM, state.theme, Icons.Default.Language, onEvent, Modifier.weight(1f))
+                        ThemeChip("Chiaro", AppTheme.LIGHT, state.theme, onEvent, Modifier.weight(1f))
+                        ThemeChip("Scuro", AppTheme.DARK, state.theme, onEvent, Modifier.weight(1f))
+                        ThemeChip("Auto", AppTheme.SYSTEM, state.theme, onEvent, Modifier.weight(1f))
                     }
                 }
             }
@@ -108,8 +110,8 @@ fun ProfileScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
                 IconBadge(Icons.Default.NotificationsNone, PantryColors.ErrorBg, PantryColors.Error)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Avvisi di pre-scadenza", style = PantryTypography.titleLarge)
-                    Text("Promemoria per il cibo in scadenza", color = PantryColors.Muted)
+                    Text("Avvisi di pre-scadenza", style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text("Promemoria per il cibo in scadenza", color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 Switch(
                     checked = state.expirationNotificationsEnabled,
@@ -117,26 +119,26 @@ fun ProfileScreen(
                     colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = PantryColors.Green700)
                 )
             }
-            Spacer(Modifier.height(PantrySpacing.lg))
-            NotificationDaysRow(
-                icon = Icons.Default.Inventory2,
-                title = "Alimenti freschi",
-                days = state.freshNotificationDays,
-                enabled = state.expirationNotificationsEnabled,
-                onMinus = { onEvent(ProfileEvent.OnFreshDaysMinus) },
-                onPlus = { onEvent(ProfileEvent.OnFreshDaysPlus) }
-            )
-            Spacer(Modifier.height(PantrySpacing.lg))
-            NotificationDaysRow(
-                icon = Icons.Default.Inventory2,
-                title = "Lunga conservazione",
-                days = state.longLifeNotificationDays,
-                iconBackground = Color(0xFFF4E8DB),
-                iconColor = PantryColors.Pantry,
-                enabled = state.expirationNotificationsEnabled,
-                onMinus = { onEvent(ProfileEvent.OnLongLifeDaysMinus) },
-                onPlus = { onEvent(ProfileEvent.OnLongLifeDaysPlus) }
-            )
+            if (state.expirationNotificationsEnabled) {
+                Spacer(Modifier.height(PantrySpacing.lg))
+                NotificationDaysRow(
+                    icon = Icons.Default.Inventory2,
+                    title = "Alimenti freschi",
+                    days = state.freshNotificationDays,
+                    onMinus = { onEvent(ProfileEvent.OnFreshDaysMinus) },
+                    onPlus = { onEvent(ProfileEvent.OnFreshDaysPlus) }
+                )
+                Spacer(Modifier.height(PantrySpacing.lg))
+                NotificationDaysRow(
+                    icon = Icons.Default.Inventory2,
+                    title = "Lunga conservazione",
+                    days = state.longLifeNotificationDays,
+                    iconBackground = Color(0xFFF4E8DB),
+                    iconColor = PantryColors.Pantry,
+                    onMinus = { onEvent(ProfileEvent.OnLongLifeDaysMinus) },
+                    onPlus = { onEvent(ProfileEvent.OnLongLifeDaysPlus) }
+                )
+            }
         }
         Spacer(Modifier.height(104.dp))
     }
@@ -150,8 +152,8 @@ private fun SettingRow(icon: ImageVector, title: String, value: String) {
         horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
     ) {
         IconBadge(icon)
-        Text(title, style = PantryTypography.titleLarge, modifier = Modifier.weight(1f))
-        Text(value, color = PantryColors.Muted, style = PantryTypography.titleMedium)
+        Text(title, style = PantryTypography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = PantryColors.Muted, style = PantryTypography.titleMedium, maxLines = 1)
     }
 }
 
@@ -160,14 +162,12 @@ private fun ThemeChip(
     label: String,
     theme: AppTheme,
     selectedTheme: AppTheme,
-    icon: ImageVector,
     onEvent: (ProfileEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     FoodChip(
         label = label,
         selected = theme == selectedTheme,
-        icon = icon,
         modifier = modifier,
         onClick = { onEvent(ProfileEvent.OnThemeSelected(theme)) }
     )
@@ -180,17 +180,16 @@ private fun NotificationDaysRow(
     days: Int,
     iconBackground: Color = PantryColors.Green50,
     iconColor: Color = PantryColors.Green700,
-    enabled: Boolean = true,
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
         IconBadge(icon, iconBackground, iconColor)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = PantryTypography.titleMedium, color = if (enabled) PantryColors.Ink else PantryColors.Muted)
-            Text(if (enabled) "Avvisa N giorni prima" else "Notifiche disattivate", color = PantryColors.Muted)
+            Text(title, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Avvisa $days giorni prima", color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Stepper(value = days, onMinus = { if (enabled) onMinus() }, onPlus = { if (enabled) onPlus() })
+        Stepper(value = days, valueLabel = "${days}g", onMinus = onMinus, onPlus = onPlus)
     }
 }
 
@@ -204,9 +203,9 @@ private fun IconBadge(
         icon,
         contentDescription = null,
         modifier = Modifier
-            .size(56.dp)
+            .size(48.dp)
             .background(background, RoundedCornerShape(16.dp))
-            .padding(14.dp),
+            .padding(12.dp),
         tint = color
     )
 }

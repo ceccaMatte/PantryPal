@@ -8,6 +8,7 @@ import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.BarcodeResolution
 import com.example.pantrypal.domain.matching.FoodCategoryMatcher
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.FoodCategory
 import com.example.pantrypal.domain.model.SaveAddedFoodCommand
 import com.example.pantrypal.domain.model.SaveAddedFoodResult
@@ -45,6 +46,7 @@ class AddFoodViewModel @Inject constructor(
 
     private var pendingRemoteResolution: BarcodeResolution.FoundRemote? = null
     private var manualBarcodeProductDraft: BarcodeProductDraft? = null
+    private var nextManualLotId = 2L
 
     init {
         viewModelScope.launch { refreshSuggestions("") }
@@ -121,17 +123,30 @@ class AddFoodViewModel @Inject constructor(
                 }
                 is ManualAddEvent.OnPerishabilitySelected -> _manualState.update { it.copy(perishability = event.perishability) }
                 is ManualAddEvent.OnStorageLocationSelected -> _manualState.update { it.copy(storageLocation = event.storageLocation) }
+                ManualAddEvent.OnAddLotClick -> _manualState.update {
+                    it.copy(
+                        lots = it.lots + ManualAddLotUi(id = nextManualLotId++),
+                        validationErrors = it.validationErrors - com.example.pantrypal.domain.model.SaveAddedFoodValidationError.LOTS_REQUIRED
+                    )
+                }
+                is ManualAddEvent.OnRemoveLotClick -> _manualState.update {
+                    it.copy(lots = it.lots.filterNot { lot -> lot.id == event.lotId })
+                }
                 is ManualAddEvent.OnExpirationDateSelected -> _manualState.update {
                     it.copy(
-                        expirationDate = event.date,
+                        lots = it.lots.map { lot -> if (lot.id == event.lotId) lot.copy(expirationDate = event.date) else lot },
                         validationErrors = it.validationErrors - com.example.pantrypal.domain.model.SaveAddedFoodValidationError.DATE_REQUIRED
                     )
                 }
-                ManualAddEvent.OnQuantityMinus -> _manualState.update {
-                    it.copy(quantity = (it.quantity - 1).coerceAtLeast(0))
+                is ManualAddEvent.OnQuantityMinus -> _manualState.update {
+                    it.copy(lots = it.lots.map { lot ->
+                        if (lot.id == event.lotId) lot.copy(quantity = (lot.quantity - 1).coerceAtLeast(0)) else lot
+                    })
                 }
-                ManualAddEvent.OnQuantityPlus -> _manualState.update {
-                    it.copy(quantity = it.quantity + 1)
+                is ManualAddEvent.OnQuantityPlus -> _manualState.update {
+                    it.copy(lots = it.lots.map { lot ->
+                        if (lot.id == event.lotId) lot.copy(quantity = lot.quantity + 1) else lot
+                    })
                 }
                 ManualAddEvent.OnSaveClick -> saveManualFood()
             }
@@ -190,8 +205,7 @@ class AddFoodViewModel @Inject constructor(
         when (val result = saveAddedFoodUseCase(
             SaveAddedFoodCommand(
                 categorySelection = selection,
-                expirationDate = state.expirationDate,
-                quantity = state.quantity,
+                lots = state.lots.map { AddFoodLotDraft(it.expirationDate, it.quantity) },
                 storageLocation = state.storageLocation,
                 perishability = state.perishability,
                 barcodeProductDraft = manualBarcodeProductDraft
@@ -282,6 +296,7 @@ class AddFoodViewModel @Inject constructor(
         pendingRemoteResolution = null
         manualBarcodeProductDraft = null
         _manualState.value = ManualAddUiState()
+        nextManualLotId = 2L
     }
 
     private fun FoodCategory.toSuggestionUi(): FoodSuggestionUi =

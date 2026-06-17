@@ -291,7 +291,10 @@ data class RecipeIngredientData(
     val normalizedName: String,
     val externalIngredientId: String?,
     val amount: Double?,
-    val unit: String?
+    val unit: String?,
+    val cleanName: String = originalName,
+    val displayAmount: String? = null,
+    val originalText: String? = originalName
 )
 
 enum class RecipeAvailabilityStatus {

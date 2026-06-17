@@ -13,17 +13,22 @@ sealed interface AddFoodCategorySelection {
 
 data class SaveAddedFoodCommand(
     val categorySelection: AddFoodCategorySelection?,
-    val expirationDate: LocalDate?,
-    val quantity: Int,
+    val lots: List<AddFoodLotDraft>,
     val storageLocation: StorageLocation,
     val perishability: PerishabilityType,
     val barcodeProductDraft: BarcodeProductDraft? = null
 )
 
+data class AddFoodLotDraft(
+    val expirationDate: LocalDate?,
+    val quantity: Int
+)
+
 enum class SaveAddedFoodValidationError {
     CATEGORY_REQUIRED,
     DATE_REQUIRED,
-    QUANTITY_INVALID
+    QUANTITY_INVALID,
+    LOTS_REQUIRED
 }
 
 sealed interface SaveAddedFoodResult {

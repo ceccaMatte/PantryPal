@@ -22,8 +22,8 @@ data class RecipeCardUi(
     val title: String,
     val description: String,
     val readyInMinutes: Int,
-    val presentCount: Int,
-    val missingCount: Int,
+    val presentCount: Int?,
+    val missingCount: Int?,
     val isFavorite: Boolean
 )
 
@@ -38,7 +38,8 @@ data class RecipeDetailUiState(
     val isFavorite: Boolean = false,
     val presentIngredients: List<RecipeIngredientUi> = emptyList(),
     val missingIngredients: List<RecipeIngredientUi> = emptyList(),
-    val selectedIngredient: RecipeIngredientUi? = null,
+    val isSummaryExpanded: Boolean = false,
+    val expandedIngredientKey: String? = null,
     val linkSuggestions: List<RecipeFoodSuggestionUi> = emptyList(),
     val linkQuery: String = "",
     val isLoading: Boolean = false,
@@ -79,6 +80,7 @@ sealed interface RecipeDetailEvent {
     data object OnBackClick : RecipeDetailEvent
     data object OnFavoriteClick : RecipeDetailEvent
     data object OnShareClick : RecipeDetailEvent
+    data object OnSummaryToggleClick : RecipeDetailEvent
     data class OnIngredientClick(val ingredientKey: String) : RecipeDetailEvent
     data object OnDismissIngredientSheet : RecipeDetailEvent
     data class OnLinkQueryChange(val value: String) : RecipeDetailEvent

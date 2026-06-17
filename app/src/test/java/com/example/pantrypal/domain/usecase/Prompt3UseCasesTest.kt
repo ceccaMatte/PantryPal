@@ -7,6 +7,7 @@ import com.example.pantrypal.data.recipe.RecipeRepository
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.matching.FoodCategoryMatcher
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.AppTheme
 import com.example.pantrypal.domain.model.BarcodeProductDraft
 import com.example.pantrypal.domain.model.BarcodeProductLink
@@ -260,8 +261,7 @@ private class FakePantryRepository : PantryRepository {
     }
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
-        expirationDate: LocalDate,
-        quantity: Int,
+        lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft?
     ): Long {
         saveAddedFoodCalls += 1

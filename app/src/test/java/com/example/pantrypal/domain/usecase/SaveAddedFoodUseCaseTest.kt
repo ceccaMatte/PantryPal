@@ -2,6 +2,7 @@ package com.example.pantrypal.domain.usecase
 
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.AddFoodLotDraft
 import com.example.pantrypal.domain.model.BarcodeProductDraft
 import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
@@ -33,8 +34,7 @@ class SaveAddedFoodUseCaseTest {
         val result = useCase(
             SaveAddedFoodCommand(
                 categorySelection = null,
-                expirationDate = null,
-                quantity = 0,
+                lots = emptyList(),
                 storageLocation = StorageLocation.FRIDGE,
                 perishability = PerishabilityType.FRESH
             )
@@ -42,8 +42,24 @@ class SaveAddedFoodUseCaseTest {
 
         val errors = (result as SaveAddedFoodResult.ValidationError).errors
         assertTrue(SaveAddedFoodValidationError.CATEGORY_REQUIRED in errors)
+        assertTrue(SaveAddedFoodValidationError.LOTS_REQUIRED in errors)
+    }
+
+    @Test
+    fun returnsDateErrorWhenAValidQuantityLotHasNoDate() = runBlocking {
+        val useCase = SaveAddedFoodUseCase(FakePantryRepositoryForAddedFood())
+
+        val result = useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = listOf(AddFoodLotDraft(expirationDate = null, quantity = 1)),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH
+            )
+        )
+
+        val errors = (result as SaveAddedFoodResult.ValidationError).errors
         assertTrue(SaveAddedFoodValidationError.DATE_REQUIRED in errors)
-        assertTrue(SaveAddedFoodValidationError.QUANTITY_INVALID in errors)
     }
 
     @Test
@@ -55,8 +71,7 @@ class SaveAddedFoodUseCaseTest {
         val result = useCase(
             SaveAddedFoodCommand(
                 categorySelection = AddFoodCategorySelection.Existing(7),
-                expirationDate = date,
-                quantity = 2,
+                lots = listOf(AddFoodLotDraft(date, 2)),
                 storageLocation = StorageLocation.FRIDGE,
                 perishability = PerishabilityType.FRESH
             )
@@ -64,8 +79,7 @@ class SaveAddedFoodUseCaseTest {
 
         assertEquals(SaveAddedFoodResult.Success(7), result)
         assertEquals(AddFoodCategorySelection.Existing(7), repository.savedSelection)
-        assertEquals(date, repository.savedDate)
-        assertEquals(2, repository.savedQuantity)
+        assertEquals(listOf(AddFoodLotDraft(date, 2)), repository.savedLots)
     }
 
     @Test
@@ -80,8 +94,7 @@ class SaveAddedFoodUseCaseTest {
                     storageLocation = StorageLocation.FRIDGE,
                     perishability = PerishabilityType.FRESH
                 ),
-                expirationDate = LocalDate.of(2026, 7, 1),
-                quantity = 1,
+                lots = listOf(AddFoodLotDraft(LocalDate.of(2026, 7, 1), 1)),
                 storageLocation = StorageLocation.FRIDGE,
                 perishability = PerishabilityType.FRESH
             )
@@ -90,14 +103,76 @@ class SaveAddedFoodUseCaseTest {
         assertEquals(SaveAddedFoodResult.Success(42), result)
         assertTrue(repository.savedSelection is AddFoodCategorySelection.New)
     }
+
+    @Test
+    fun filtersOutZeroQuantityLotsBeforeSaving() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+        val validDate = LocalDate.of(2026, 7, 1)
+
+        val result = useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = listOf(
+                    AddFoodLotDraft(validDate, 2),
+                    AddFoodLotDraft(LocalDate.of(2026, 7, 2), 0)
+                ),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH
+            )
+        )
+
+        assertEquals(SaveAddedFoodResult.Success(7), result)
+        assertEquals(listOf(AddFoodLotDraft(validDate, 2)), repository.savedLots)
+    }
+
+    @Test
+    fun returnsLotsRequiredWhenAllLotsAreRemovedOrZero() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+
+        val result = useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = listOf(AddFoodLotDraft(LocalDate.of(2026, 7, 1), 0)),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH
+            )
+        )
+
+        val errors = (result as SaveAddedFoodResult.ValidationError).errors
+        assertTrue(SaveAddedFoodValidationError.LOTS_REQUIRED in errors)
+        assertEquals(emptyList<AddFoodLotDraft>(), repository.savedLots)
+    }
+
+    @Test
+    fun forwardsMultipleValidLotsToRepository() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+        val lots = listOf(
+            AddFoodLotDraft(LocalDate.of(2026, 7, 1), 1),
+            AddFoodLotDraft(LocalDate.of(2026, 7, 8), 3)
+        )
+
+        val result = useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = lots,
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH
+            )
+        )
+
+        assertEquals(SaveAddedFoodResult.Success(7), result)
+        assertEquals(lots, repository.savedLots)
+    }
 }
 
 private class FakePantryRepositoryForAddedFood(
     private val returnCategoryId: Long = 7
 ) : PantryRepository {
     var savedSelection: AddFoodCategorySelection? = null
-    var savedDate: LocalDate? = null
-    var savedQuantity: Int? = null
+    var savedLots: List<AddFoodLotDraft> = emptyList()
 
     override fun observePantryRows(filter: StorageLocationFilter): Flow<List<PantryRow>> = emptyFlow()
     override fun observeFoodDetail(categoryId: Long): Flow<FoodDetailData?> = emptyFlow()
@@ -112,13 +187,11 @@ private class FakePantryRepositoryForAddedFood(
     override suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long = returnCategoryId
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
-        expirationDate: LocalDate,
-        quantity: Int,
+        lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft?
     ): Long {
         savedSelection = categorySelection
-        savedDate = expirationDate
-        savedQuantity = quantity
+        savedLots = lots
         return returnCategoryId
     }
     override suspend fun saveFoodDetailChanges(draft: FoodDetailDraft) = Unit

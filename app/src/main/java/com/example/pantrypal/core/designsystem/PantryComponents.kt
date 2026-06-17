@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -51,10 +52,10 @@ fun PantryCard(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        content = { Column(Modifier.padding(PantrySpacing.lg), content = content) }
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        content = { Column(Modifier.padding(PantrySpacing.md), content = content) }
     )
 }
 
@@ -80,20 +81,21 @@ fun FoodChip(
         border = if (dashed) BorderStroke(1.dp, PantryColors.Green700) else border
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
-            Text(label, style = PantryTypography.labelLarge)
+            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            Text(label, style = PantryTypography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             badge?.let {
                 Text(
                     text = it,
                     modifier = Modifier
                         .background(PantryColors.ErrorBg, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     color = PantryColors.Error,
-                    style = PantryTypography.labelLarge
+                    style = PantryTypography.labelLarge,
+                    maxLines = 1
                 )
             }
         }
@@ -105,20 +107,21 @@ fun Stepper(
     value: Int,
     onMinus: () -> Unit,
     onPlus: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueLabel: String = "x$value"
 ) {
     Row(
         modifier = modifier
             .border(1.dp, PantryColors.Line, RoundedCornerShape(28.dp))
             .background(PantryColors.Card, RoundedCornerShape(28.dp))
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onMinus, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onMinus, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Default.Remove, contentDescription = "Rimuovi", tint = PantryColors.Green700)
         }
-        Text("x$value", style = PantryTypography.labelLarge, modifier = Modifier.width(42.dp), textAlign = TextAlign.Center)
-        IconButton(onClick = onPlus, modifier = Modifier.size(36.dp)) {
+        Text(valueLabel, style = PantryTypography.labelLarge, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center, maxLines = 1)
+        IconButton(onClick = onPlus, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Default.Add, contentDescription = "Aggiungi", tint = PantryColors.Green700)
         }
     }
@@ -129,13 +132,13 @@ fun PantryFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
     FloatingActionButton(
         onClick = onClick,
         modifier = modifier
-            .size(72.dp)
-            .shadow(12.dp, RoundedCornerShape(22.dp)),
-        shape = RoundedCornerShape(22.dp),
+            .size(66.dp)
+            .shadow(10.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
         containerColor = PantryColors.Green700,
         contentColor = Color.White
     ) {
-        Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(34.dp))
+        Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(30.dp))
     }
 }
 
@@ -156,9 +159,9 @@ fun PantryBottomBar(
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
         Surface(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-                .height(88.dp),
-            shape = RoundedCornerShape(26.dp),
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .height(78.dp),
+            shape = RoundedCornerShape(24.dp),
             color = PantryColors.Card,
             tonalElevation = 8.dp,
             shadowElevation = 8.dp
@@ -172,7 +175,7 @@ fun PantryBottomBar(
                 items.take(2).forEach { item ->
                     NavigationBarItemContent(item, currentRoute, onItemClick)
                 }
-                Spacer(Modifier.width(78.dp))
+                Spacer(Modifier.width(72.dp))
                 items.drop(2).forEach { item ->
                     NavigationBarItemContent(item, currentRoute, onItemClick)
                 }
@@ -196,8 +199,8 @@ private fun RowScope.NavigationBarItemContent(
             .clickable { onItemClick(item.route) },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(item.icon, contentDescription = item.label, tint = color)
-        Text(item.label, style = PantryTypography.labelLarge, color = color)
+        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(22.dp))
+        Text(item.label, style = PantryTypography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

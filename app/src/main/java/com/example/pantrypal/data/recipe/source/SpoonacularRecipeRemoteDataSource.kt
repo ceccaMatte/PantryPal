@@ -75,13 +75,20 @@ class SpoonacularRecipeRemoteDataSource @Inject constructor(
             sourceUrl = sourceUrl,
             ingredients = extendedIngredients.mapNotNull { ingredient ->
                 val original = ingredient.original ?: ingredient.name ?: return@mapNotNull null
-                val matchName = ingredient.name?.takeIf { it.isNotBlank() } ?: original
+                val cleanName = resolveIngredientCleanName(
+                    nameClean = ingredient.nameClean,
+                    name = ingredient.name,
+                    original = original
+                ) ?: return@mapNotNull null
                 RecipeIngredientData(
-                    originalName = original,
-                    normalizedName = textNormalizer.normalizeFoodText(matchName),
+                    originalName = cleanName,
+                    normalizedName = textNormalizer.normalizeFoodText(cleanName),
                     externalIngredientId = ingredient.id?.toString(),
                     amount = ingredient.amount,
-                    unit = ingredient.unit
+                    unit = ingredient.unit,
+                    cleanName = cleanName,
+                    displayAmount = ingredientDisplayAmount(ingredient.amount, ingredient.unit, original),
+                    originalText = original
                 )
             }
         )

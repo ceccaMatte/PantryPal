@@ -43,6 +43,7 @@ data class SpoonacularRecipeInformationDto(
 @Serializable
 data class SpoonacularIngredientDto(
     val id: Long? = null,
+    val nameClean: String? = null,
     val name: String? = null,
     val original: String? = null,
     val amount: Double? = null,

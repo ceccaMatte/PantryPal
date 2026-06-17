@@ -6,10 +6,13 @@ import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.HomeOverview
 import com.example.pantrypal.domain.model.PantryPalApiMode
 import com.example.pantrypal.domain.model.RecipeCard
+import com.example.pantrypal.domain.model.RecipeDetailResult
 import com.example.pantrypal.domain.model.RecipeSearchResult
 import com.example.pantrypal.domain.model.StorageLocationFilter
 import com.example.pantrypal.domain.usecase.GetHomeSuggestedRecipesUseCase
 import com.example.pantrypal.domain.usecase.GetHomeOverviewUseCase
+import com.example.pantrypal.domain.usecase.ToggleFavoriteRecipeUseCase
+import com.example.pantrypal.data.recipe.RecipeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -25,7 +28,9 @@ import kotlinx.coroutines.launch
 class HomeViewModel @Inject constructor(
     getHomeOverviewUseCase: GetHomeOverviewUseCase,
     private val getHomeSuggestedRecipesUseCase: GetHomeSuggestedRecipesUseCase,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val recipeRepository: RecipeRepository,
+    private val toggleFavoriteRecipeUseCase: ToggleFavoriteRecipeUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -50,23 +55,54 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (event) {
                 is HomeEvent.OnExpiringFoodClick -> _effects.send(
-                    HomeEffect.NavigateToPantry(StorageLocationFilter.ALL, event.categoryId)
+                    HomeEffect.NavigateToPantry(StorageLocationFilter.ALL)
                 )
+                HomeEvent.OnExpiringCardClick -> navigateToAllPantry()
+                HomeEvent.OnPantrySummaryClick -> navigateToAllPantry()
                 is HomeEvent.OnStorageStatClick -> {
                     settingsRepository.updatePantryStorageFilter(event.filter)
                     _effects.send(HomeEffect.NavigateToPantry(event.filter))
                 }
                 is HomeEvent.OnRecipeClick -> _effects.send(HomeEffect.NavigateToRecipeDetail(event.recipeId))
+                is HomeEvent.OnSuggestedRecipeFavoriteClick -> toggleSuggestedFavorite(event.recipeId)
                 HomeEvent.OnGenerateRecipesClick -> generateRecipes()
                 HomeEvent.OnFabClick -> _effects.send(HomeEffect.OpenAddChoiceSheet)
             }
         }
     }
 
+    private suspend fun navigateToAllPantry() {
+        settingsRepository.updatePantryStorageFilter(StorageLocationFilter.ALL)
+        _effects.send(HomeEffect.NavigateToPantry(StorageLocationFilter.ALL))
+    }
+
     private suspend fun generateRecipes() {
         _uiState.update { it.copy(isGeneratingRecipes = true, canGenerateRecipes = false) }
         val result = getHomeSuggestedRecipesUseCase(allowNetwork = true).first()
         _uiState.update { it.withSuggestedRecipes(result, getHomeSuggestedRecipesUseCase.apiMode).copy(isGeneratingRecipes = false) }
+    }
+
+    private suspend fun toggleSuggestedFavorite(recipeId: String) {
+        if (recipeRepository.isFavorite(recipeId)) {
+            recipeRepository.removeFavoriteRecipe(recipeId)
+            _uiState.update { state ->
+                state.copy(suggestedRecipes = state.suggestedRecipes.map {
+                    if (it.externalId == recipeId) it.copy(isFavorite = false) else it
+                })
+            }
+            return
+        }
+        when (val detail = recipeRepository.getRecipeDetailResult(recipeId)) {
+            is RecipeDetailResult.Success -> {
+                toggleFavoriteRecipeUseCase(detail.recipe)
+                _uiState.update { state ->
+                    state.copy(suggestedRecipes = state.suggestedRecipes.map {
+                        if (it.externalId == recipeId) it.copy(isFavorite = true) else it
+                    })
+                }
+            }
+            else -> Unit
+        }
     }
 }
 
@@ -144,5 +180,6 @@ private fun RecipeCard.toHomeUi(): HomeRecipeUi =
         externalId = externalId,
         title = title,
         subtitle = "Suggerita dai tuoi ingredienti",
-        timeLabel = preparationTimeMinutes?.let { "$it min" } ?: "--"
+        timeLabel = preparationTimeMinutes?.let { "$it min" } ?: "--",
+        isFavorite = isFavorite
     )

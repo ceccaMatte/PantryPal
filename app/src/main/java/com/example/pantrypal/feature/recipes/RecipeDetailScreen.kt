@@ -31,18 +31,18 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
 import com.example.pantrypal.core.designsystem.ErrorState
@@ -54,29 +54,19 @@ import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
 import com.example.pantrypal.core.designsystem.PlaceholderImageBox
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailScreen(
     state: RecipeDetailUiState,
     onEvent: (RecipeDetailEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    state.selectedIngredient?.let { ingredient ->
-        ModalBottomSheet(
-            onDismissRequest = { onEvent(RecipeDetailEvent.OnDismissIngredientSheet) },
-            containerColor = PantryColors.Card
-        ) {
-            IngredientLinkSheet(state = state, ingredient = ingredient, onEvent = onEvent)
-        }
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(PantryColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.md)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onEvent(RecipeDetailEvent.OnBackClick) }) {
@@ -85,7 +75,7 @@ fun RecipeDetailScreen(
             Text(
                 "Dettaglio Ricetta",
                 modifier = Modifier.weight(1f),
-                style = PantryTypography.titleLarge,
+                style = PantryTypography.titleMedium,
                 color = PantryColors.Green700
             )
             IconButton(onClick = { onEvent(RecipeDetailEvent.OnFavoriteClick) }) {
@@ -118,8 +108,8 @@ fun RecipeDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
-                .background(Color(0xFFF4E8DB), RoundedCornerShape(22.dp))
+                .height(176.dp)
+                .background(Color(0xFFF4E8DB), RoundedCornerShape(18.dp))
         ) {
             PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
             FoodChip(
@@ -131,18 +121,27 @@ fun RecipeDetailScreen(
             )
         }
 
-        Text(state.title, style = PantryTypography.headlineMedium)
+        Text(state.title, style = PantryTypography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg), verticalAlignment = Alignment.CenterVertically) {
             MetaLabel(Icons.Default.AccessTime, "${state.readyInMinutes} min")
             MetaLabel(Icons.Default.Info, state.difficultyLabel)
             MetaLabel(Icons.Default.People, state.servingsLabel)
         }
-        Text(state.description, color = PantryColors.Muted)
+        Text(
+            state.description,
+            color = PantryColors.Muted,
+            style = PantryTypography.bodyLarge,
+            maxLines = if (state.isSummaryExpanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis
+        )
+        TextButton(onClick = { onEvent(RecipeDetailEvent.OnSummaryToggleClick) }) {
+            Text(if (state.isSummaryExpanded) "Nascondi" else "Mostra altro")
+        }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text("Ingredienti", style = PantryTypography.titleLarge)
-                Text("Tocca un ingrediente per scegliere la corrispondenza.", color = PantryColors.Muted)
+                Text("Ingredienti", style = PantryTypography.titleMedium)
+                Text("Tocca un ingrediente per collegarlo.", color = PantryColors.Muted, style = PantryTypography.labelLarge)
             }
             FoodChip(label = "${state.presentIngredients.size + state.missingIngredients.size} item")
         }
@@ -153,6 +152,7 @@ fun RecipeDetailScreen(
             containerColor = PantryColors.Green50,
             ingredients = state.presentIngredients,
             isPresent = true,
+            state = state,
             onEvent = onEvent
         )
         IngredientSection(
@@ -161,87 +161,10 @@ fun RecipeDetailScreen(
             containerColor = PantryColors.ErrorBg,
             ingredients = state.missingIngredients,
             isPresent = false,
+            state = state,
             onEvent = onEvent
         )
-
-        Button(
-            onClick = { state.missingIngredients.firstOrNull()?.let { onEvent(RecipeDetailEvent.OnIngredientClick(it.key)) } },
-            enabled = state.missingIngredients.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Icon(Icons.Default.CheckCircleOutline, contentDescription = null)
-            Text(" Ce l'ho - segna in dispensa", style = PantryTypography.titleMedium)
-        }
         Spacer(Modifier.height(104.dp))
-    }
-}
-
-@Composable
-private fun IngredientLinkSheet(
-    state: RecipeDetailUiState,
-    ingredient: RecipeIngredientUi,
-    onEvent: (RecipeDetailEvent) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
-    ) {
-        Text(ingredient.name, style = PantryTypography.headlineMedium)
-        Text("Collega questo ingrediente a un alimento della tua dispensa.", color = PantryColors.Muted)
-        OutlinedTextField(
-            value = state.linkQuery,
-            onValueChange = { onEvent(RecipeDetailEvent.OnLinkQueryChange(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Cerca alimento...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PantryColors.Green700,
-                unfocusedBorderColor = PantryColors.Line,
-                focusedContainerColor = PantryColors.Card,
-                unfocusedContainerColor = PantryColors.Card
-            )
-        )
-        if (state.linkSuggestions.isEmpty()) {
-            Text("Nessun suggerimento", color = PantryColors.Muted)
-        } else {
-            state.linkSuggestions.forEach { suggestion ->
-                Button(
-                    onClick = { onEvent(RecipeDetailEvent.OnFoodSuggestionClick(suggestion)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (suggestion.isCreateNew) PantryColors.Green50 else PantryColors.Card,
-                        contentColor = PantryColors.Green700
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(suggestion.label, style = PantryTypography.titleMedium)
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { onEvent(RecipeDetailEvent.OnMarkSelectedInPantryClick) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Ce l'ho")
-            }
-            Button(
-                onClick = { onEvent(RecipeDetailEvent.OnMoveSelectedToBuyClick) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.ErrorBg, contentColor = PantryColors.Error),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Da comprare")
-            }
-        }
     }
 }
 
@@ -260,6 +183,7 @@ private fun IngredientSection(
     containerColor: Color,
     ingredients: List<RecipeIngredientUi>,
     isPresent: Boolean,
+    state: RecipeDetailUiState,
     onEvent: (RecipeDetailEvent) -> Unit
 ) {
     PantryCard {
@@ -278,7 +202,14 @@ private fun IngredientSection(
             Text("$count", style = PantryTypography.labelLarge, color = if (isPresent) PantryColors.Green700 else PantryColors.Error)
         }
         ingredients.forEach { ingredient ->
-            IngredientRow(ingredient, isPresent, onEvent)
+            IngredientRow(
+                ingredient = ingredient,
+                isPresent = isPresent,
+                isExpanded = state.expandedIngredientKey == ingredient.key,
+                linkQuery = state.linkQuery,
+                suggestions = state.linkSuggestions,
+                onEvent = onEvent
+            )
         }
     }
 }
@@ -287,28 +218,114 @@ private fun IngredientSection(
 private fun IngredientRow(
     ingredient: RecipeIngredientUi,
     isPresent: Boolean,
+    isExpanded: Boolean,
+    linkQuery: String,
+    suggestions: List<RecipeFoodSuggestionUi>,
     onEvent: (RecipeDetailEvent) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEvent(RecipeDetailEvent.OnIngredientClick(ingredient.key)) }
-            .padding(vertical = PantrySpacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+            .padding(vertical = PantrySpacing.sm)
     ) {
-        Icon(
-            if (isPresent) Icons.Default.CheckCircleOutline else Icons.Default.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = if (isPresent) PantryColors.Green700 else PantryColors.Muted
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onEvent(RecipeDetailEvent.OnIngredientClick(ingredient.key)) }
+                .padding(vertical = PantrySpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+        ) {
+            Icon(
+                if (isPresent) Icons.Default.CheckCircleOutline else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (isPresent) PantryColors.Green700 else PantryColors.Muted
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(ingredient.name, style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                ingredient.pantryMatchLabel?.let {
+                    Text(it, color = PantryColors.Green700, style = PantryTypography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text(ingredient.amountLabel, color = PantryColors.Green700, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Muted)
+        }
+
+        if (isExpanded) {
+            IngredientInlineEditor(
+                linkQuery = linkQuery,
+                suggestions = suggestions,
+                isPresent = isPresent,
+                onEvent = onEvent
+            )
+        }
+    }
+}
+
+@Composable
+private fun IngredientInlineEditor(
+    linkQuery: String,
+    suggestions: List<RecipeFoodSuggestionUi>,
+    isPresent: Boolean,
+    onEvent: (RecipeDetailEvent) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isPresent) PantryColors.Green50 else Color.White, RoundedCornerShape(14.dp))
+            .padding(PantrySpacing.md),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
+    ) {
+        Text("Collega alimento", style = PantryTypography.labelLarge, color = PantryColors.Muted)
+        OutlinedTextField(
+            value = linkQuery,
+            onValueChange = { onEvent(RecipeDetailEvent.OnLinkQueryChange(it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Cerca alimento...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PantryColors.Green700,
+                unfocusedBorderColor = PantryColors.Line,
+                focusedContainerColor = PantryColors.Card,
+                unfocusedContainerColor = PantryColors.Card
+            )
         )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(ingredient.name, style = PantryTypography.titleMedium)
-            ingredient.pantryMatchLabel?.let {
-                Text(it, color = PantryColors.Green700, style = PantryTypography.labelLarge)
+        if (suggestions.isEmpty()) {
+            Text("Nessun suggerimento", color = PantryColors.Muted, style = PantryTypography.labelLarge)
+        } else {
+            suggestions.take(4).forEach { suggestion ->
+                Button(
+                    onClick = { onEvent(RecipeDetailEvent.OnFoodSuggestionClick(suggestion)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (suggestion.isCreateNew) PantryColors.Green50 else PantryColors.Card,
+                        contentColor = PantryColors.Green700
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(suggestion.label, style = PantryTypography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
-        Text(ingredient.amountLabel, color = PantryColors.Green700, fontWeight = FontWeight.Bold)
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Muted)
+        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = { onEvent(RecipeDetailEvent.OnMarkSelectedInPantryClick) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Ce l'ho", maxLines = 1)
+            }
+            Button(
+                onClick = { onEvent(RecipeDetailEvent.OnMoveSelectedToBuyClick) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.ErrorBg, contentColor = PantryColors.Error),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Da comprare", maxLines = 1)
+            }
+        }
     }
 }

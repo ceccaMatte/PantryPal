@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.PantryRow
+import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocationFilter
+import com.example.pantrypal.domain.model.UserSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -37,18 +39,18 @@ class PantryViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.observeSettings()
-                .map { it.pantryStorageFilter }
-                .flatMapLatest { filter ->
+                .flatMapLatest { settings ->
+                    val filter = settings.pantryStorageFilter
                     _uiState.update { it.copy(selectedFilter = filter, isLoading = true) }
-                    observeRows(filter)
+                    observeRows(filter).map { rows -> settings to rows }
                 }
-                .collect { rows ->
+                .collect { (settings, rows) ->
                     _uiState.update { state ->
                         state.copy(
                             isLoading = false,
                             pantryRows = rows.map(PantryRow::toUi),
                             expiringFoods = rows
-                                .filter { it.nearestExpirationDate != null }
+                                .filter { it.isInExpirationThreshold(settings) }
                                 .sortedBy { it.nearestExpirationDate }
                                 .take(6)
                                 .map { it.toExpiringUi() }
@@ -81,6 +83,16 @@ class PantryViewModel @Inject constructor(
 
     private fun observeRows(filter: StorageLocationFilter): Flow<List<PantryRow>> =
         pantryRepository.observePantryRows(filter)
+}
+
+private fun PantryRow.isInExpirationThreshold(settings: UserSettings): Boolean {
+    val date = nearestExpirationDate ?: return false
+    val days = ChronoUnit.DAYS.between(LocalDate.now(), date)
+    val threshold = when (perishability) {
+        PerishabilityType.FRESH -> settings.freshNotificationDays
+        PerishabilityType.LONG_LIFE -> settings.longLifeNotificationDays
+    }
+    return days <= threshold
 }
 
 private fun PantryRow.toUi(): PantryRowUi =

@@ -137,7 +137,13 @@ class RecipeRepositoryImpl @Inject constructor(
                 normalizedName = it.normalizedName,
                 externalIngredientId = it.externalIngredientId,
                 amount = it.amount,
-                unit = it.unit
+                unit = it.unit,
+                cleanName = it.originalName,
+                displayAmount = listOfNotNull(
+                    it.amount?.let { amount -> if (amount % 1.0 == 0.0) amount.toInt().toString() else amount.toString() },
+                    it.unit
+                ).joinToString(" ").ifBlank { null },
+                originalText = it.originalName
             )
         }
         return RecipeDetail(
@@ -173,7 +179,7 @@ class RecipeRepositoryImpl @Inject constructor(
                 recipe.ingredients.map {
                     RecipeIngredientEntity(
                         recipeId = recipeId,
-                        originalName = it.originalName,
+                        originalName = it.cleanName,
                         normalizedName = it.normalizedName,
                         externalIngredientId = it.externalIngredientId,
                         amount = it.amount,
