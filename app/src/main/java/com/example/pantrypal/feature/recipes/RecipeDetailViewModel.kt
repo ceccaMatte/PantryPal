@@ -197,6 +197,7 @@ class RecipeDetailViewModel @Inject constructor(
                     RecipeLinkCategoryUi(
                         categoryId = category.id,
                         label = category.name,
+                        subtitle = "${category.defaultStorageLocation.uiLabel()} · ${category.defaultPerishability.uiLabel()}",
                         selected = category.id in state.linkSheetSelectedCategoryIds
                     )
                 },
@@ -414,3 +415,16 @@ private fun RecipeIngredientData.amountLabel(): String =
         },
         unit
     ).joinToString(" ").ifBlank { "q.b." }
+
+private fun StorageLocation.uiLabel(): String =
+    when (this) {
+        StorageLocation.FRIDGE -> "Frigo"
+        StorageLocation.FREEZER -> "Freezer"
+        StorageLocation.PANTRY -> "Dispensa"
+    }
+
+private fun PerishabilityType.uiLabel(): String =
+    when (this) {
+        PerishabilityType.FRESH -> "Fresco"
+        PerishabilityType.LONG_LIFE -> "Lunga conservazione"
+    }

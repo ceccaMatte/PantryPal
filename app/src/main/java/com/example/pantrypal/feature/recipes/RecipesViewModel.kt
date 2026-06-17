@@ -36,24 +36,27 @@ class RecipesViewModel @Inject constructor(
 
     private var favoriteIds: Set<String> = emptySet()
     private var allFavorites: List<RecipeCardUi> = emptyList()
+    private var allRecipes: List<RecipeCardUi> = emptyList()
 
     init {
         viewModelScope.launch {
             recipeRepository.observeFavoriteRecipes().collect { favorites ->
                 favoriteIds = favorites.map { it.externalId }.toSet()
                 allFavorites = favorites.map { it.toUi(isFavorite = true) }
+                allRecipes = allRecipes.markFavorites(favoriteIds)
                 _uiState.update { state ->
                     state.copy(
                         favorites = allFavorites.filterByTitle(state.searchQuery),
-                        recipes = state.recipes.markFavorites(favoriteIds)
+                        recipes = allRecipes.filterByTitle(state.searchQuery)
                     )
                 }
             }
         }
         viewModelScope.launch {
             sessionRecipeCache.recipes.collect { cachedRecipes ->
+                allRecipes = cachedRecipes.map { it.toUi() }.markFavorites(favoriteIds)
                 _uiState.update { state ->
-                    state.copy(recipes = cachedRecipes.map { it.toUi() }.markFavorites(favoriteIds))
+                    state.copy(recipes = allRecipes.filterByTitle(state.searchQuery))
                 }
             }
         }
@@ -81,6 +84,7 @@ class RecipesViewModel @Inject constructor(
             it.copy(
                 searchQuery = value,
                 isSearchButtonEnabled = normalizedQuery.length >= 3,
+                recipes = allRecipes.filterByTitle(value),
                 favorites = allFavorites.filterByTitle(value),
                 message = null
             )
@@ -91,7 +95,7 @@ class RecipesViewModel @Inject constructor(
         val state = _uiState.value
         val normalizedQuery = textNormalizer.normalizeFoodText(state.searchQuery)
         if (normalizedQuery.length < 3) return
-        if (state.lastSubmittedQuery == normalizedQuery && state.recipes.isNotEmpty()) return
+        if (state.lastSubmittedQuery == normalizedQuery && allRecipes.isNotEmpty()) return
 
         _uiState.update {
             it.copy(isLoading = true, message = null, selectedTab = RecipeTab.RESULTS)
@@ -99,11 +103,12 @@ class RecipesViewModel @Inject constructor(
         when (val result = recipeRepository.searchRecipes(RecipeSearchQuery(state.searchQuery))) {
             is RecipeSearchResult.Success -> {
                 sessionRecipeCache.merge(result.recipes)
+                allRecipes = sessionRecipeCache.recipes.value.map { recipe -> recipe.toUi() }.markFavorites(favoriteIds)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         lastSubmittedQuery = normalizedQuery,
-                        recipes = sessionRecipeCache.recipes.value.map { recipe -> recipe.toUi() }.markFavorites(favoriteIds),
+                        recipes = allRecipes.filterByTitle(state.searchQuery),
                         message = null
                     )
                 }
@@ -121,6 +126,9 @@ class RecipesViewModel @Inject constructor(
     private suspend fun toggleFavorite(externalId: String) {
         if (externalId in favoriteIds) {
             recipeRepository.removeFavoriteRecipe(externalId)
+            allRecipes = allRecipes.map {
+                if (it.externalId == externalId) it.copy(isFavorite = false) else it
+            }
             _uiState.update { state ->
                 state.copy(
                     favorites = state.favorites.filterNot { it.externalId == externalId },
@@ -136,6 +144,9 @@ class RecipesViewModel @Inject constructor(
             is RecipeDetailResult.Success -> {
                 val isFavorite = toggleFavoriteRecipeUseCase(detailResult.recipe)
                 _uiState.update { state ->
+                    allRecipes = allRecipes.map {
+                        if (it.externalId == externalId) it.copy(isFavorite = isFavorite) else it
+                    }
                     state.copy(
                         recipes = state.recipes.map {
                             if (it.externalId == externalId) it.copy(isFavorite = isFavorite) else it
@@ -171,9 +182,8 @@ private fun List<RecipeCardUi>.markFavorites(favoriteIds: Set<String>): List<Rec
     map { it.copy(isFavorite = it.externalId in favoriteIds) }
 
 private fun List<RecipeCardUi>.filterByTitle(query: String): List<RecipeCardUi> {
-    val normalized = query.trim().lowercase()
-    if (normalized.isBlank()) return this
-    return filter { it.title.lowercase().contains(normalized) }
+    val normalizer = TextNormalizer()
+    return filterByRecipeTitle(query, normalizer)
 }
 
 private fun RecipeSearchResult.toUiMessage(mode: PantryPalApiMode): String =

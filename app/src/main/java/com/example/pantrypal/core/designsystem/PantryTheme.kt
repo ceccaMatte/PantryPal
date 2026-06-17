@@ -53,21 +53,21 @@ object PantryColors {
 
     fun applyTheme(darkTheme: Boolean) {
         if (darkTheme) {
-            Background = Color(0xFF101711)
-            Card = Color(0xFF182119)
-            Green50 = Color(0xFF203327)
-            Green100 = Color(0xFF284634)
+            Background = Color(0xFF0D1510)
+            Card = Color(0xFF17221A)
+            Green50 = Color(0xFF1E3025)
+            Green100 = Color(0xFF284535)
             Green600 = Color(0xFF61B883)
             Green700 = Color(0xFF75C996)
-            Green900 = Color(0xFF0F2A1D)
+            Green900 = Color(0xFF132A1C)
             Ink = Color(0xFFEAF1EA)
             InkSoft = Color(0xFFC6D3CA)
             Muted = Color(0xFF98A79E)
-            Line = Color(0xFF2C372F)
-            WarningBg = Color(0xFF3E351B)
-            WarningText = Color(0xFFE7C96B)
-            ErrorBg = Color(0xFF3D2421)
-            Error = Color(0xFFE07062)
+            Line = Color(0xFF314039)
+            WarningBg = Color(0xFF4A3E1D)
+            WarningText = Color(0xFFF0D37A)
+            ErrorBg = Color(0xFF4A2824)
+            Error = Color(0xFFFF8A7A)
             Freezer = Color(0xFF84B8F5)
             Pantry = Color(0xFFE29562)
         } else {
@@ -96,6 +96,7 @@ object PantrySpacing {
     val xs = 4.dp
     val sm = 8.dp
     val md = 12.dp
+    val card = 14.dp
     val lg = 16.dp
     val xl = 24.dp
     val xxl = 32.dp
@@ -163,15 +164,15 @@ private val LightColors = lightColorScheme(
 private val DarkColors = darkColorScheme(
     primary = Color(0xFF75C996),
     onPrimary = Color(0xFF092115),
-    primaryContainer = Color(0xFF203327),
+    primaryContainer = Color(0xFF1E3025),
     onPrimaryContainer = Color(0xFFEAF1EA),
     secondary = Color(0xFFE29562),
     onSecondary = Color(0xFF2A1308),
-    background = Color(0xFF101711),
+    background = Color(0xFF0D1510),
     onBackground = Color(0xFFEAF1EA),
-    surface = Color(0xFF182119),
+    surface = Color(0xFF17221A),
     onSurface = Color(0xFFEAF1EA),
-    error = Color(0xFFE07062)
+    error = Color(0xFFFF8A7A)
 )
 
 fun resolveDarkTheme(appTheme: AppTheme, systemDark: Boolean): Boolean =

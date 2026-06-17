@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,7 +64,7 @@ fun RecipesScreen(
             .background(PantryColors.Background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.md)
     ) {
         Text("Ricette", style = PantryTypography.headlineMedium, color = PantryColors.Green700)
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), verticalAlignment = Alignment.CenterVertically) {
@@ -100,7 +101,7 @@ fun RecipesScreen(
         state.message?.let {
             Text(it, color = PantryColors.Muted)
         }
-        Text("Sulla base di cio che hai in dispensa", color = PantryColors.Muted)
+        Text("Sulla base di cio che hai in dispensa", color = PantryColors.Muted, style = PantryTypography.bodyLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.xl), verticalAlignment = Alignment.CenterVertically) {
             RecipeTabLabel("Risultati", RecipeTab.RESULTS, state.selectedTab, onEvent)
             RecipeTabLabel("Preferiti", RecipeTab.FAVORITES, state.selectedTab, onEvent)
@@ -160,18 +161,22 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
-                .background(recipeTint(recipe.externalId), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
+                .height(128.dp)
+                .background(recipeTint(recipe.externalId), RoundedCornerShape(16.dp))
         ) {
-            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
+            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(50.dp), background = Color.Transparent)
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(PantrySpacing.md),
+                    .padding(PantrySpacing.sm),
                 shape = CircleShape,
-                color = Color.White
+                color = PantryColors.Card,
+                shadowElevation = 2.dp
             ) {
-                IconButton(onClick = { onEvent(RecipesEvent.OnRecipeFavoriteClick(recipe.externalId)) }) {
+                IconButton(
+                    onClick = { onEvent(RecipesEvent.OnRecipeFavoriteClick(recipe.externalId)) },
+                    modifier = Modifier.size(44.dp)
+                ) {
                     Icon(
                         if (recipe.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Preferito",
@@ -181,26 +186,26 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
             }
         }
         Spacer(Modifier.height(PantrySpacing.md))
-        Text(recipe.title, style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(recipe.title, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(recipe.description, color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(PantrySpacing.md))
-        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
+        Spacer(Modifier.height(PantrySpacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
             if (recipe.presentCount != null && recipe.missingCount != null) {
-                FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline)
-                FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info)
+                FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline, modifier = Modifier.widthIn(max = 150.dp))
+                FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info, modifier = Modifier.widthIn(max = 150.dp))
             } else {
                 FoodChip(label = "Da collegare", icon = Icons.Default.Info)
             }
         }
-        Spacer(Modifier.height(PantrySpacing.md))
+        Spacer(Modifier.height(PantrySpacing.sm))
         Button(
             onClick = { onEvent(RecipesEvent.OnRecipeClick(recipe.externalId)) },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         ) {
-            Text("Vedi Ricetta", style = PantryTypography.titleMedium)
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Text("Vedi Ricetta", style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -208,6 +213,6 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
 private fun recipeTint(id: String): Color =
     when {
         id.contains("quinoa") -> PantryColors.Green50
-        id.contains("salmone") -> Color(0xFFE8F1F7)
-        else -> Color(0xFFF4E8DB)
+        id.contains("salmone") -> PantryColors.Green100
+        else -> PantryColors.WarningBg.copy(alpha = 0.55f)
     }

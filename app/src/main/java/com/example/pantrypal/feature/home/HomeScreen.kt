@@ -139,7 +139,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White, RoundedCornerShape(18.dp))
+                        .background(PantryColors.Card, RoundedCornerShape(18.dp))
                         .padding(PantrySpacing.lg),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
@@ -220,31 +220,47 @@ private fun RecipeSuggestionCard(
     onFavoriteClick: () -> Unit
 ) {
     PantryCard(onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-            PlaceholderImageBox(modifier = Modifier.size(74.dp), background = Color(0xFFF2E7D8))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(recipe.title, style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(recipe.subtitle, color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(PantrySpacing.sm))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = PantryColors.Muted, modifier = Modifier.size(18.dp))
-                    Text(" ${recipe.timeLabel}", color = PantryColors.Muted, style = PantryTypography.labelLarge)
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 44.dp)
+            ) {
+                PlaceholderImageBox(modifier = Modifier.size(72.dp), background = PantryColors.WarningBg.copy(alpha = 0.55f))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(recipe.title, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(recipe.subtitle, color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(PantrySpacing.sm))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = PantryColors.Muted, modifier = Modifier.size(16.dp))
+                        Text(" ${recipe.timeLabel}", color = PantryColors.Muted, style = PantryTypography.labelLarge, maxLines = 1)
+                    }
                 }
             }
-            IconButton(onClick = onFavoriteClick) {
+            IconButton(
+                onClick = onFavoriteClick,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(40.dp)
+            ) {
                 Icon(
                     if (recipe.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Preferito",
                     tint = PantryColors.Green700
                 )
             }
+        }
+        Spacer(Modifier.height(PantrySpacing.sm))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Button(
                 onClick = onClick,
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700),
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Icon(Icons.Default.Restaurant, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text(" Vedi")
+                Text(" Vedi", maxLines = 1)
             }
         }
     }

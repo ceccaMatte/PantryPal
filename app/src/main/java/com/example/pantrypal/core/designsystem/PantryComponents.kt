@@ -20,8 +20,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 
 @Composable
 fun PantryCard(
@@ -54,8 +58,8 @@ fun PantryCard(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        content = { Column(Modifier.padding(PantrySpacing.md), content = content) }
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        content = { Column(Modifier.padding(PantrySpacing.card), content = content) }
     )
 }
 
@@ -81,11 +85,11 @@ fun FoodChip(
         border = if (dashed) BorderStroke(1.dp, PantryColors.Green700) else border
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(15.dp)) }
             Text(label, style = PantryTypography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             badge?.let {
                 Text(
@@ -114,14 +118,14 @@ fun Stepper(
         modifier = modifier
             .border(1.dp, PantryColors.Line, RoundedCornerShape(28.dp))
             .background(PantryColors.Card, RoundedCornerShape(28.dp))
-            .padding(horizontal = 4.dp, vertical = 3.dp),
+            .padding(horizontal = 3.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onMinus, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onMinus, modifier = Modifier.size(30.dp)) {
             Icon(Icons.Default.Remove, contentDescription = "Rimuovi", tint = PantryColors.Green700)
         }
-        Text(valueLabel, style = PantryTypography.labelLarge, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center, maxLines = 1)
-        IconButton(onClick = onPlus, modifier = Modifier.size(32.dp)) {
+        Text(valueLabel, style = PantryTypography.labelLarge, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center, maxLines = 1)
+        IconButton(onClick = onPlus, modifier = Modifier.size(30.dp)) {
             Icon(Icons.Default.Add, contentDescription = "Aggiungi", tint = PantryColors.Green700)
         }
     }
@@ -132,13 +136,13 @@ fun PantryFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
     FloatingActionButton(
         onClick = onClick,
         modifier = modifier
-            .size(66.dp)
-            .shadow(10.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+            .size(58.dp)
+            .shadow(8.dp, RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
         containerColor = PantryColors.Green700,
         contentColor = Color.White
     ) {
-        Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(30.dp))
+        Icon(Icons.Default.Add, contentDescription = "Aggiungi", modifier = Modifier.size(28.dp))
     }
 }
 
@@ -159,9 +163,9 @@ fun PantryBottomBar(
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
         Surface(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-                .height(78.dp),
-            shape = RoundedCornerShape(24.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .height(68.dp),
+            shape = RoundedCornerShape(22.dp),
             color = PantryColors.Card,
             tonalElevation = 8.dp,
             shadowElevation = 8.dp
@@ -175,7 +179,7 @@ fun PantryBottomBar(
                 items.take(2).forEach { item ->
                     NavigationBarItemContent(item, currentRoute, onItemClick)
                 }
-                Spacer(Modifier.width(72.dp))
+                Spacer(Modifier.width(64.dp))
                 items.drop(2).forEach { item ->
                     NavigationBarItemContent(item, currentRoute, onItemClick)
                 }
@@ -199,7 +203,7 @@ private fun RowScope.NavigationBarItemContent(
             .clickable { onItemClick(item.route) },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(22.dp))
+        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(20.dp))
         Text(item.label, style = PantryTypography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -248,13 +252,147 @@ fun PlaceholderImageBox(
     background: Color = PantryColors.Green50
 ) {
     Box(
-        modifier = modifier.background(background, RoundedCornerShape(18.dp)),
+        modifier = modifier.background(background, RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(34.dp)
                 .border(2.dp, PantryColors.Line, CircleShape)
+        )
+    }
+}
+
+data class PantryExpiryLotUi(
+    val id: Long,
+    val dateLabel: String,
+    val expirationLabel: String,
+    val expirationDate: LocalDate?,
+    val quantity: Int,
+    val isExpired: Boolean = false
+)
+
+@Composable
+fun ExpiryLotsBlock(
+    title: String,
+    lots: List<PantryExpiryLotUi>,
+    emptyTitle: String,
+    emptyMessage: String,
+    onAddClick: () -> Unit,
+    onDateClick: (Long) -> Unit,
+    onRemoveClick: ((Long) -> Unit)? = null,
+    onMinusClick: (Long) -> Unit,
+    onPlusClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    showAsSingleCard: Boolean = true
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, style = PantryTypography.labelLarge, color = PantryColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable(onClick = onAddClick)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700, modifier = Modifier.size(20.dp))
+                Text(" Aggiungi", color = PantryColors.Green700, style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (lots.isEmpty()) {
+            EmptyState(emptyTitle, emptyMessage)
+        } else if (showAsSingleCard) {
+            PantryCard {
+                lots.forEachIndexed { index, lot ->
+                    ExpiryLotRow(
+                        lot = lot,
+                        onDateClick = onDateClick,
+                        onRemoveClick = onRemoveClick,
+                        onMinusClick = onMinusClick,
+                        onPlusClick = onPlusClick
+                    )
+                    if (index < lots.lastIndex) {
+                        Spacer(Modifier.fillMaxWidth().height(1.dp).background(PantryColors.Line))
+                    }
+                }
+            }
+        } else {
+            lots.forEach { lot ->
+                PantryCard {
+                    ExpiryLotRow(
+                        lot = lot,
+                        onDateClick = onDateClick,
+                        onRemoveClick = onRemoveClick,
+                        onMinusClick = onMinusClick,
+                        onPlusClick = onPlusClick
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpiryLotRow(
+    lot: PantryExpiryLotUi,
+    onDateClick: (Long) -> Unit,
+    onRemoveClick: ((Long) -> Unit)?,
+    onMinusClick: (Long) -> Unit,
+    onPlusClick: (Long) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = PantrySpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+    ) {
+        Icon(
+            Icons.Default.CalendarMonth,
+            contentDescription = null,
+            modifier = Modifier
+                .size(50.dp)
+                .background(if (lot.isExpired) PantryColors.ErrorBg else PantryColors.Green50, RoundedCornerShape(15.dp))
+                .clickable { onDateClick(lot.id) }
+                .padding(13.dp),
+            tint = if (lot.isExpired) PantryColors.Error else PantryColors.Green700
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onDateClick(lot.id) }
+        ) {
+            Text(lot.dateLabel, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (lot.expirationLabel.isNotBlank()) {
+                    Icon(
+                        Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = if (lot.isExpired) PantryColors.Error else PantryColors.WarningText,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        " ${lot.expirationLabel}",
+                        color = if (lot.isExpired) PantryColors.Error else PantryColors.WarningText,
+                        style = PantryTypography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        onRemoveClick?.let {
+            IconButton(onClick = { it(lot.id) }, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Rimuovi scadenza", tint = PantryColors.Error)
+            }
+        }
+        Stepper(
+            value = lot.quantity,
+            onMinus = { onMinusClick(lot.id) },
+            onPlus = { onPlusClick(lot.id) }
         )
     }
 }

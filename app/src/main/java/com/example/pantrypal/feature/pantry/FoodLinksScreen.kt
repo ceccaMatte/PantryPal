@@ -30,7 +30,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,7 +85,7 @@ fun FoodLinksScreen(
             state.scannedProducts.forEach { product ->
                 PantryCard {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-                        PlaceholderImageBox(modifier = Modifier.size(76.dp), background = Color(0xFFF2E7D8))
+                        PlaceholderImageBox(modifier = Modifier.size(70.dp), background = PantryColors.WarningBg.copy(alpha = 0.55f))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(product.productName, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(product.subtitle, color = PantryColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)

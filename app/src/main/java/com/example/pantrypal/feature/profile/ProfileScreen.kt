@@ -17,11 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -55,10 +53,10 @@ fun ProfileScreen(
             .fillMaxSize()
             .background(PantryColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(PantrySpacing.xl)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
     ) {
-        Text("Profilo", style = PantryTypography.displaySmall)
+        Text("Profilo", style = PantryTypography.headlineMedium, color = PantryColors.Ink)
 
         SectionLabel("PROFILO UTENTE")
         PantryCard {
@@ -70,9 +68,9 @@ fun ProfileScreen(
                 placeholder = { Text("Inserisci nome", color = PantryColors.Muted) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PantryColors.Green700) },
                 trailingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PantryColors.Muted) },
-                textStyle = PantryTypography.titleMedium,
+                textStyle = PantryTypography.titleMedium.copy(color = PantryColors.Ink),
                 singleLine = true,
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PantryColors.Line,
                     unfocusedBorderColor = PantryColors.Line,
@@ -91,11 +89,11 @@ fun ProfileScreen(
                     .height(1.dp)
                     .background(PantryColors.Line)
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
                 IconBadge(Icons.Default.DarkMode)
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Tema", style = PantryTypography.titleMedium)
-                    Spacer(Modifier.height(PantrySpacing.md))
+                    Spacer(Modifier.height(PantrySpacing.sm))
                     Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
                         ThemeChip("Chiaro", AppTheme.LIGHT, state.theme, onEvent, Modifier.weight(1f))
                         ThemeChip("Scuro", AppTheme.DARK, state.theme, onEvent, Modifier.weight(1f))
@@ -107,7 +105,7 @@ fun ProfileScreen(
 
         SectionLabel("NOTIFICHE")
         PantryCard {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
                 IconBadge(Icons.Default.NotificationsNone, PantryColors.ErrorBg, PantryColors.Error)
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Avvisi di pre-scadenza", style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -140,20 +138,20 @@ fun ProfileScreen(
                 )
             }
         }
-        Spacer(Modifier.height(104.dp))
+        Spacer(Modifier.height(88.dp))
     }
 }
 
 @Composable
 private fun SettingRow(icon: ImageVector, title: String, value: String) {
     Row(
-        modifier = Modifier.padding(vertical = PantrySpacing.md),
+        modifier = Modifier.padding(vertical = PantrySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
+        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
     ) {
         IconBadge(icon)
         Text(title, style = PantryTypography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, color = PantryColors.Muted, style = PantryTypography.titleMedium, maxLines = 1)
+        Text(value, color = PantryColors.Muted, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -183,10 +181,10 @@ private fun NotificationDaysRow(
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
         IconBadge(icon, iconBackground, iconColor)
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("Avvisa $days giorni prima", color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Stepper(value = days, valueLabel = "${days}g", onMinus = onMinus, onPlus = onPlus)
@@ -203,9 +201,9 @@ private fun IconBadge(
         icon,
         contentDescription = null,
         modifier = Modifier
-            .size(48.dp)
-            .background(background, RoundedCornerShape(16.dp))
-            .padding(12.dp),
+            .size(44.dp)
+            .background(background, RoundedCornerShape(14.dp))
+            .padding(11.dp),
         tint = color
     )
 }

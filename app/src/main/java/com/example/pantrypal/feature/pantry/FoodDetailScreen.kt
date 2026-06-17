@@ -16,16 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -49,14 +46,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.pantrypal.core.designsystem.EmptyState
+import com.example.pantrypal.core.designsystem.ExpiryLotsBlock
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
+import com.example.pantrypal.core.designsystem.PantryExpiryLotUi
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
 import com.example.pantrypal.core.designsystem.PlaceholderImageBox
-import com.example.pantrypal.core.designsystem.Stepper
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocation
 import java.time.Instant
@@ -175,33 +172,16 @@ fun FoodDetailScreen(
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel("SCADENZE - ${state.totalQuantity} CONFEZIONI")
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { datePickerTarget = AddLotTarget }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = PantryColors.Green700)
-                Text(" Aggiungi", color = PantryColors.Green700, style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        if (state.lots.isEmpty()) {
-            EmptyState("Nessuna scadenza", "Aggiungi una scadenza per far comparire l'alimento in dispensa.")
-        } else {
-            PantryCard {
-                state.lots.forEachIndexed { index, lot ->
-                    LotRow(
-                        lot = lot,
-                        onDateClick = { datePickerTarget = lot.id },
-                        onEvent = onEvent
-                    )
-                    if (index < state.lots.lastIndex) {
-                        Spacer(Modifier.fillMaxWidth().height(1.dp).background(PantryColors.Line))
-                    }
-                }
-            }
-        }
+        ExpiryLotsBlock(
+            title = "SCADENZE - ${state.totalQuantity} CONFEZIONI",
+            lots = state.lots.map { it.toPantryExpiryLotUi() },
+            emptyTitle = "Nessuna scadenza",
+            emptyMessage = "Aggiungi una scadenza per far comparire l'alimento in dispensa.",
+            onAddClick = { datePickerTarget = AddLotTarget },
+            onDateClick = { datePickerTarget = it },
+            onMinusClick = { onEvent(FoodDetailEvent.OnLotMinusClick(it)) },
+            onPlusClick = { onEvent(FoodDetailEvent.OnLotPlusClick(it)) }
+        )
 
         Button(
             onClick = { onEvent(FoodDetailEvent.OnSaveClick) },
@@ -237,7 +217,7 @@ private fun FoodHero(state: FoodDetailUiState) {
         modifier = Modifier
             .fillMaxWidth()
             .height(210.dp)
-            .background(Color(0xFFF4E8DB), RoundedCornerShape(24.dp))
+            .background(PantryColors.WarningBg.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
     ) {
         PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
         Box(
@@ -260,45 +240,19 @@ private fun FoodHero(state: FoodDetailUiState) {
 }
 
 @Composable
-private fun LotRow(
-    lot: FoodLotUi,
-    onDateClick: () -> Unit,
-    onEvent: (FoodDetailEvent) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = PantrySpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
-    ) {
-        Icon(
-            Icons.Default.CalendarMonth,
-            contentDescription = null,
-            modifier = Modifier
-                .size(56.dp)
-                .background(if (lot.isExpired) PantryColors.ErrorBg else PantryColors.Green50, RoundedCornerShape(16.dp))
-                .clickable(onClick = onDateClick)
-                .padding(14.dp),
-            tint = if (lot.isExpired) PantryColors.Error else PantryColors.Green700
-        )
-        Column(modifier = Modifier.weight(1f).clickable(onClick = onDateClick)) {
-            Text(lot.dateLabel, style = PantryTypography.titleMedium)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.WarningAmber, contentDescription = null, tint = if (lot.isExpired) PantryColors.Error else PantryColors.WarningText, modifier = Modifier.size(17.dp))
-                Text(" ${lot.expirationLabel}", color = if (lot.isExpired) PantryColors.Error else PantryColors.WarningText, style = PantryTypography.titleMedium)
-            }
-        }
-        Stepper(
-            value = lot.quantity,
-            onMinus = { onEvent(FoodDetailEvent.OnLotMinusClick(lot.id)) },
-            onPlus = { onEvent(FoodDetailEvent.OnLotPlusClick(lot.id)) }
-        )
-    }
-}
-
-@Composable
 private fun SectionLabel(text: String) {
     Text(text, style = PantryTypography.labelLarge, color = PantryColors.Muted)
 }
 
 private fun Long.toLocalDate(): LocalDate =
     Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
+
+private fun FoodLotUi.toPantryExpiryLotUi(): PantryExpiryLotUi =
+    PantryExpiryLotUi(
+        id = id,
+        dateLabel = dateLabel,
+        expirationLabel = expirationLabel,
+        expirationDate = expirationDate,
+        quantity = quantity,
+        isExpired = isExpired
+    )

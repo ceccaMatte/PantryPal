@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircleOutline
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Restaurant
@@ -37,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,8 +81,8 @@ fun RecipeDetailScreen(
             .fillMaxSize()
             .background(PantryColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+            .padding(horizontal = 18.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onEvent(RecipeDetailEvent.OnBackClick) }) {
@@ -120,10 +124,10 @@ fun RecipeDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(176.dp)
-                .background(Color(0xFFF4E8DB), RoundedCornerShape(18.dp))
+                .height(150.dp)
+                .background(PantryColors.WarningBg.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
         ) {
-            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
+            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(50.dp), background = Color.Transparent)
             FoodChip(
                 label = "${state.readyInMinutes} min",
                 icon = Icons.Default.AccessTime,
@@ -133,8 +137,8 @@ fun RecipeDetailScreen(
             )
         }
 
-        Text(state.title, style = PantryTypography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg), verticalAlignment = Alignment.CenterVertically) {
+        Text(state.title, style = PantryTypography.headlineMedium, color = PantryColors.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md), verticalAlignment = Alignment.CenterVertically) {
             MetaLabel(Icons.Default.AccessTime, "${state.readyInMinutes} min")
             MetaLabel(Icons.Default.Info, state.difficultyLabel)
             MetaLabel(Icons.Default.People, state.servingsLabel)
@@ -203,12 +207,12 @@ private fun IngredientSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(containerColor, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                .padding(PantrySpacing.lg),
+                .padding(horizontal = PantrySpacing.md, vertical = PantrySpacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                Icon(if (isPresent) Icons.Default.Restaurant else Icons.Default.WarningAmber, contentDescription = null, tint = if (isPresent) PantryColors.Green700 else PantryColors.Error)
+                Icon(if (isPresent) Icons.Default.Restaurant else Icons.Default.WarningAmber, contentDescription = null, tint = if (isPresent) PantryColors.Green700 else PantryColors.Error, modifier = Modifier.size(22.dp))
                 Text(title, style = PantryTypography.titleMedium, color = if (isPresent) PantryColors.Green700 else PantryColors.Error)
             }
             Text("$count", style = PantryTypography.labelLarge, color = if (isPresent) PantryColors.Green700 else PantryColors.Error)
@@ -232,9 +236,9 @@ private fun IngredientRow(
     onEvent: (RecipeDetailEvent) -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = PantrySpacing.sm)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = PantrySpacing.xs)
     ) {
         Row(
             modifier = Modifier
@@ -247,16 +251,17 @@ private fun IngredientRow(
             Icon(
                 if (isPresent) Icons.Default.CheckCircleOutline else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (isPresent) PantryColors.Green700 else PantryColors.Muted
+                tint = if (isPresent) PantryColors.Green700 else PantryColors.Muted,
+                modifier = Modifier.size(22.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text(ingredient.name, style = PantryTypography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(ingredient.name, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 ingredient.pantryMatchLabel?.let {
                     Text(it, color = PantryColors.Green700, style = PantryTypography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Text(ingredient.amountLabel, color = PantryColors.Green700, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Muted)
+            Text(ingredient.amountLabel, color = PantryColors.Green700, style = PantryTypography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Muted, modifier = Modifier.size(20.dp))
         }
 
         if (isExpanded) {
@@ -278,7 +283,7 @@ private fun IngredientInlineEditor(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isPresent) PantryColors.Green50 else Color.White, RoundedCornerShape(14.dp))
+            .background(if (isPresent) PantryColors.Green50 else PantryColors.Card, RoundedCornerShape(14.dp))
             .padding(PantrySpacing.md),
         verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
     ) {
@@ -305,7 +310,9 @@ private fun IngredientInlineEditor(
                 Text(
                     "Collegato a: ${ingredient.linkedCategoryNames.joinToString()}",
                     color = PantryColors.Muted,
-                    style = PantryTypography.labelLarge
+                    style = PantryTypography.labelLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text("Nessuno presente in dispensa", color = PantryColors.Muted, style = PantryTypography.labelLarge)
             }
@@ -318,7 +325,7 @@ private fun IngredientInlineEditor(
                     colors = ButtonDefaults.buttonColors(containerColor = PantryColors.ErrorBg, contentColor = PantryColors.Error),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Da comprare", maxLines = 1)
+                    Text("Da comprare", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             } else {
                 Button(
@@ -327,7 +334,7 @@ private fun IngredientInlineEditor(
                     colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Ce l'ho", maxLines = 1)
+                    Text("Ce l'ho", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Button(
@@ -336,7 +343,7 @@ private fun IngredientInlineEditor(
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Gestisci", maxLines = 1)
+                Text("Gestisci", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -347,14 +354,30 @@ private fun IngredientLinksSheet(
     state: RecipeDetailUiState,
     onEvent: (RecipeDetailEvent) -> Unit
 ) {
+    val ingredientName = (state.presentIngredients + state.missingIngredients)
+        .firstOrNull { it.key == state.linkSheetIngredientKey }
+        ?.name
+        .orEmpty()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(PantrySpacing.md)
     ) {
-        Text("Gestisci collegamenti", style = PantryTypography.titleMedium)
-        Text("Seleziona gli alimenti interni da collegare a questo ingrediente.", color = PantryColors.Muted)
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(width = 44.dp, height = 5.dp)
+                .background(PantryColors.Line, RoundedCornerShape(12.dp))
+        )
+        Text("Collega a un alimento", style = PantryTypography.headlineMedium, color = PantryColors.Ink)
+        Text(
+            "A quale alimento della tua dispensa corrisponde \"$ingredientName\"?",
+            color = PantryColors.Muted,
+            style = PantryTypography.bodyLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
         OutlinedTextField(
             value = state.linkSheetQuery,
             onValueChange = { onEvent(RecipeDetailEvent.OnLinkSheetQueryChange(it)) },
@@ -362,7 +385,7 @@ private fun IngredientLinksSheet(
             placeholder = { Text("Cerca alimento...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PantryColors.Green700,
                 unfocusedBorderColor = PantryColors.Line,
@@ -371,37 +394,84 @@ private fun IngredientLinksSheet(
             )
         )
         state.linkSheetCategories.take(8).forEach { category ->
-            Button(
-                onClick = { onEvent(RecipeDetailEvent.OnLinkSheetCategoryToggle(category.categoryId)) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (category.selected) PantryColors.Green700 else PantryColors.Card,
-                    contentColor = if (category.selected) Color.White else PantryColors.Ink
-                ),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(category.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (category.selected) "Selezionato" else "Aggiungi", style = PantryTypography.labelLarge)
-            }
+            LinkCategoryRow(category = category, onEvent = onEvent)
         }
         if (state.canCreateLinkSheetCategory) {
             Button(
                 onClick = { onEvent(RecipeDetailEvent.OnLinkSheetCreateCategoryClick) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Crea nuovo alimento")
+                Text("Aggiungi nuovo alimento", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Button(
             onClick = { onEvent(RecipeDetailEvent.OnLinkSheetSaveClick) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(16.dp)
         ) {
             Text("Salva collegamenti")
         }
         Spacer(Modifier.height(PantrySpacing.lg))
     }
 }
+
+@Composable
+private fun LinkCategoryRow(category: RecipeLinkCategoryUi, onEvent: (RecipeDetailEvent) -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEvent(RecipeDetailEvent.OnLinkSheetCategoryToggle(category.categoryId)) },
+        shape = RoundedCornerShape(16.dp),
+        color = if (category.selected) PantryColors.Green50 else PantryColors.Card,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (category.selected) PantryColors.Green700 else PantryColors.Line
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(PantrySpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+        ) {
+            Icon(
+                imageVector = category.storageIcon(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(PantryColors.Green50, RoundedCornerShape(13.dp))
+                    .padding(10.dp),
+                tint = category.storageTint()
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(category.label, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(category.subtitle, style = PantryTypography.labelLarge, color = PantryColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                if (category.selected) Icons.Default.CheckCircleOutline else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (category.selected) PantryColors.Green700 else PantryColors.Line,
+                modifier = Modifier.size(30.dp)
+            )
+        }
+    }
+}
+
+private fun RecipeLinkCategoryUi.storageIcon() =
+    when {
+        subtitle.contains("Freezer", ignoreCase = true) -> Icons.Default.AcUnit
+        subtitle.contains("Dispensa", ignoreCase = true) -> Icons.Default.Inventory2
+        subtitle.contains("Frigo", ignoreCase = true) -> Icons.Default.Kitchen
+        else -> Icons.Default.Restaurant
+    }
+
+private fun RecipeLinkCategoryUi.storageTint(): Color =
+    when {
+        subtitle.contains("Freezer", ignoreCase = true) -> PantryColors.Freezer
+        subtitle.contains("Dispensa", ignoreCase = true) -> PantryColors.Pantry
+        else -> PantryColors.Green700
+    }

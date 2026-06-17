@@ -74,6 +74,7 @@ data class RecipeLinkedCategoryUi(
 data class RecipeLinkCategoryUi(
     val categoryId: Long,
     val label: String,
+    val subtitle: String,
     val selected: Boolean
 )
 

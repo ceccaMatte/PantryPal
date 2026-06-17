@@ -18,3 +18,14 @@
 - nella card delle ricette ci son i badge che ti dicono quanti ingredineti hai e quanti ne devi comparare che danno sempre 0 quidni no c'è collegato il counter.
 14) in genrale la pagna più critica è dettagli ricetta perchè p sbagliata sia  alivello di desing che a livello di funzioanlità
 15) nella pagina priofilo utente i tasti di chiaro scuso e defualt auto non devono avere l'icona mangia troppo sapzio
+
+
+---
+
+1) quando son nella home e faccio ricerca ricette le ricette che trovo devo cacharle in ram e cancellarle solo se chiudo l'app quindi se cerco delle ricette e le trovo non vanno cancellate o nascoste a meno che non le rigeneri da 0 e poi le ricette proposta vanno aggionate sempre quando inserisco un alimento macthanod tra quello che ho in cache di una ricerca precedente e le ricette preferite. es se ho 10 ricette preferite e poi faccio cerca e trovo altre 7 ricette nuove che potrebbero andarmi bene in totale io avrò 17 ricette e se poi aggiungo un nuov ingredinete rifaccio la ricerca delle ricette sulla basa delle 10 preferite che ho in memoria pesitente più le 7 che ho in ram e le ricette che ho in ram le riaggiorno solo se l'utente fa esplicitamnte il tatso di aggiorna lista ricette referite
+2) se sono in dettaglio ricetta ed aggiungo un ingrediente allora la ricetta deve ricalcolare gli ingredineti perchè magari ho aggiunot un ingredinete che mi serve
+3) nella pagina della dispensa c'è una lete di ricerca e deve funzioanre quinidi deve essere un input search che scrivo il nome dell'alimento devo trovarlo quidni in quel caso cerca sempre rispetto la filtor selezionato e trovo l'alimeto se ho 120 alimento e cerco latte voglio che mi filtri gli alimneit inutili e mi lasci latte
+4) il filtro della ricerca nei preferiti delle ricette non funziona indipendentemente da cosa scrivo lui mi mostra sempre tutte le ricette a cui ho mesos like così è inutile
+
+---
+1) bisogna sistemare il medoto di inserimento della scadenza nella pagina aggiungi alimenrto che deve essere lo stesso della paguina dettaglio alimento

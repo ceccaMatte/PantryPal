@@ -18,9 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Restaurant
@@ -46,14 +44,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pantrypal.core.designsystem.ExpiryLotsBlock
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
+import com.example.pantrypal.core.designsystem.PantryExpiryLotUi
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.Stepper
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.SaveAddedFoodValidationError
 import com.example.pantrypal.domain.model.StorageLocation
@@ -206,13 +204,6 @@ fun ManualAddScreen(
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel("SCADENZE")
-            TextButton(onClick = { onEvent(ManualAddEvent.OnAddLotClick) }) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Text("Aggiungi")
-            }
-        }
         if (SaveAddedFoodValidationError.LOTS_REQUIRED in state.validationErrors) {
             Text("Aggiungi almeno una scadenza valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
         }
@@ -223,54 +214,21 @@ fun ManualAddScreen(
             Text("Quantita non valida", color = PantryColors.Error, style = PantryTypography.labelLarge)
         }
 
-        state.lots.forEach { lot ->
-            PantryCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                    Icon(
-                        Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(PantryColors.Green50, RoundedCornerShape(14.dp))
-                            .padding(12.dp),
-                        tint = PantryColors.Green700
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            lot.expirationDate?.format(DateFormatter) ?: "Scegli data",
-                            style = PantryTypography.titleMedium
-                        )
-                        Text(
-                            lot.expirationDate?.toRelativeLabel().orEmpty(),
-                            color = PantryColors.WarningText,
-                            fontWeight = FontWeight.Bold,
-                            style = PantryTypography.labelLarge
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            selectedLotId = lot.id
-                            showDatePicker = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("Data")
-                    }
-                }
-                Spacer(Modifier.height(PantrySpacing.md))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { onEvent(ManualAddEvent.OnRemoveLotClick(lot.id)) }) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Rimuovi scadenza", tint = PantryColors.Error)
-                    }
-                    Stepper(
-                        value = lot.quantity,
-                        onMinus = { onEvent(ManualAddEvent.OnQuantityMinus(lot.id)) },
-                        onPlus = { onEvent(ManualAddEvent.OnQuantityPlus(lot.id)) }
-                    )
-                }
-            }
-        }
+        ExpiryLotsBlock(
+            title = "SCADENZE - ${state.lots.sumOf { it.quantity.coerceAtLeast(0) }} AGGIUNTE",
+            lots = state.lots.map { it.toPantryExpiryLotUi() },
+            emptyTitle = "Nessuna scadenza",
+            emptyMessage = "Aggiungi almeno una data di scadenza.",
+            onAddClick = { onEvent(ManualAddEvent.OnAddLotClick) },
+            onDateClick = {
+                selectedLotId = it
+                showDatePicker = true
+            },
+            onRemoveClick = { onEvent(ManualAddEvent.OnRemoveLotClick(it)) },
+            onMinusClick = { onEvent(ManualAddEvent.OnQuantityMinus(it)) },
+            onPlusClick = { onEvent(ManualAddEvent.OnQuantityPlus(it)) },
+            showAsSingleCard = false
+        )
 
         Button(
             onClick = { onEvent(ManualAddEvent.OnSaveClick) },
@@ -348,3 +306,13 @@ private fun LocalDate.toRelativeLabel(): String {
         else -> "tra ${days / 30} mesi"
     }
 }
+
+private fun ManualAddLotUi.toPantryExpiryLotUi(): PantryExpiryLotUi =
+    PantryExpiryLotUi(
+        id = id,
+        dateLabel = expirationDate?.format(DateFormatter) ?: "Scegli data",
+        expirationLabel = expirationDate?.toRelativeLabel().orEmpty(),
+        expirationDate = expirationDate,
+        quantity = quantity,
+        isExpired = expirationDate?.isBefore(LocalDate.now()) == true
+    )
