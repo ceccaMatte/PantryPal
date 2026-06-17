@@ -7,9 +7,12 @@ import com.example.pantrypal.core.database.dao.RecipeDao
 import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
 import com.example.pantrypal.core.database.entity.FavoriteRecipeEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientEntity
+import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
 import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.data.pantry.toDomain
 import com.example.pantrypal.data.recipe.remote.SpoonacularApi
+import com.example.pantrypal.domain.model.IngredientRelationType
+import com.example.pantrypal.domain.model.LinkOrigin
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeDetail
 import com.example.pantrypal.domain.model.RecipeIngredientData
@@ -34,7 +37,7 @@ class RecipeRepositoryImpl @Inject constructor(
 ) : RecipeRepository {
     override suspend fun searchRecipes(query: RecipeSearchQuery): RecipeSearchResult {
         if (query.query.isBlank()) return RecipeSearchResult.Empty
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return sampleRecipeResult()
+        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return RecipeSearchResult.ConfigMissing
 
         return try {
             val response = spoonacularApi.searchRecipes(query.query)
@@ -43,7 +46,8 @@ class RecipeRepositoryImpl @Inject constructor(
                     externalId = it.id.toString(),
                     title = it.title,
                     imageUrl = it.image,
-                    preparationTimeMinutes = null
+                    preparationTimeMinutes = null,
+                    isFavorite = isFavorite(it.id.toString())
                 )
             }
             if (recipes.isEmpty()) RecipeSearchResult.Empty else RecipeSearchResult.Success(recipes)
@@ -56,7 +60,7 @@ class RecipeRepositoryImpl @Inject constructor(
 
     override suspend fun searchRecipesByIngredients(ingredients: List<String>): RecipeSearchResult {
         if (ingredients.isEmpty()) return RecipeSearchResult.Empty
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return sampleRecipeResult()
+        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return RecipeSearchResult.ConfigMissing
 
         return try {
             val recipes = spoonacularApi.findRecipesByIngredients(ingredients.joinToString(","))
@@ -65,7 +69,8 @@ class RecipeRepositoryImpl @Inject constructor(
                         externalId = it.id.toString(),
                         title = it.title,
                         imageUrl = it.image,
-                        preparationTimeMinutes = null
+                        preparationTimeMinutes = null,
+                        isFavorite = isFavorite(it.id.toString())
                     )
                 }
             if (recipes.isEmpty()) RecipeSearchResult.Empty else RecipeSearchResult.Success(recipes)
@@ -78,7 +83,7 @@ class RecipeRepositoryImpl @Inject constructor(
 
     override suspend fun getRecipeDetail(externalId: String): RecipeDetail? {
         getFavoriteRecipeDetail(externalId)?.let { return it }
-        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return sampleRecipeDetail(externalId)
+        if (BuildConfig.SPOONACULAR_API_KEY.isBlank()) return null
 
         return try {
             spoonacularApi.getRecipeInformation(externalId).let { dto ->
@@ -92,9 +97,10 @@ class RecipeRepositoryImpl @Inject constructor(
                     sourceUrl = dto.sourceUrl,
                     ingredients = dto.extendedIngredients.mapNotNull { ingredient ->
                         val original = ingredient.original ?: ingredient.name ?: return@mapNotNull null
+                        val matchName = ingredient.name?.takeIf { it.isNotBlank() } ?: original
                         RecipeIngredientData(
                             originalName = original,
-                            normalizedName = textNormalizer.normalizeFoodText(original),
+                            normalizedName = textNormalizer.normalizeFoodText(matchName),
                             externalIngredientId = ingredient.id?.toString(),
                             amount = ingredient.amount,
                             unit = ingredient.unit
@@ -179,6 +185,9 @@ class RecipeRepositoryImpl @Inject constructor(
         recipeDao.deleteFavoriteByExternalId(externalId)
     }
 
+    override suspend fun isFavorite(externalId: String): Boolean =
+        recipeDao.isFavoriteCount(externalId) > 0
+
     override suspend fun findIngredientLinks(
         normalizedAlias: String,
         externalIngredientId: String?
@@ -195,34 +204,51 @@ class RecipeRepositoryImpl @Inject constructor(
             .map { links -> links.map { it.toDomain() } }
             .first()
 
-    private fun sampleRecipeResult(): RecipeSearchResult =
-        RecipeSearchResult.Success(
-            listOf(
-                RecipeCard("sample-pasta", "Pasta al Pomodoro e Basilico", null, 20, false),
-                RecipeCard("sample-quinoa", "Bowl di Quinoa e Avocado", null, 25, false),
-                RecipeCard("sample-salmone", "Salmone al Forno", null, 30, false)
-            )
-        )
+    override suspend fun linkIngredientToFood(
+        aliasOriginal: String,
+        normalizedAlias: String,
+        externalIngredientId: String?,
+        categoryId: Long,
+        language: String?,
+        replaceLinkId: Long?
+    ): RecipeIngredientLink? {
+        if (normalizedAlias.isBlank()) return null
+        val now = Instant.now()
+        return database.withTransaction {
+            replaceLinkId?.let { recipeIngredientLinkDao.deleteById(it) }
+            val existing = recipeIngredientLinkDao.getLinkByAliasAndCategory(normalizedAlias, categoryId)
+            if (existing == null) {
+                recipeIngredientLinkDao.upsert(
+                    RecipeIngredientLinkEntity(
+                        categoryId = categoryId,
+                        aliasOriginal = aliasOriginal.trim(),
+                        normalizedAlias = normalizedAlias,
+                        language = language?.takeIf { it.isNotBlank() },
+                        externalIngredientId = externalIngredientId,
+                        relationType = IngredientRelationType.EXACT,
+                        origin = LinkOrigin.USER,
+                        isActive = true,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            } else {
+                recipeIngredientLinkDao.upsert(
+                    existing.copy(
+                        aliasOriginal = aliasOriginal.trim(),
+                        language = language?.takeIf { it.isNotBlank() },
+                        externalIngredientId = externalIngredientId ?: existing.externalIngredientId,
+                        relationType = IngredientRelationType.EXACT,
+                        origin = LinkOrigin.USER,
+                        isActive = true,
+                        updatedAt = now
+                    )
+                )
+            }
+            recipeIngredientLinkDao.findActiveLinksByAlias(normalizedAlias)
+                .firstOrNull { it.categoryId == categoryId }
+                ?.toDomain()
+        }
+    }
 
-    private fun sampleRecipeDetail(externalId: String): RecipeDetail =
-        RecipeDetail(
-            externalId = externalId,
-            title = when (externalId) {
-                "sample-quinoa" -> "Bowl di Quinoa e Avocado"
-                "sample-salmone" -> "Salmone al Forno"
-                else -> "Pasta al Pomodoro e Basilico"
-            },
-            description = "Un classico pronto in pochi minuti con ingredienti freschi e profumati.",
-            preparationTimeMinutes = 20,
-            servings = 2,
-            imageUrl = null,
-            sourceUrl = null,
-            ingredients = listOf(
-                RecipeIngredientData("Pasta (Spaghetti)", "pasta spaghetti", null, 200.0, "g"),
-                RecipeIngredientData("Olio d'Oliva", "olio d oliva", null, 2.0, "cucchiai"),
-                RecipeIngredientData("Sale", "sale", null, null, "q.b."),
-                RecipeIngredientData("Pomodorini Ciliegino", "pomodorini ciliegino", null, 250.0, "g"),
-                RecipeIngredientData("Basilico fresco", "basilico fresco", null, 1.0, "mazzetto")
-            )
-        )
 }

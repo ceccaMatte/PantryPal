@@ -6,15 +6,28 @@ import com.example.pantrypal.domain.model.StorageLocation
 import java.time.LocalDate
 
 data class ScanUiState(
-    val isReading: Boolean = true,
+    val isReading: Boolean = false,
     val torchEnabled: Boolean = false,
-    val statusLabel: String = "Lettura in corso..."
+    val statusLabel: String = "Inserisci un barcode per cercare il prodotto",
+    val barcodeInput: String = "",
+    val isLookingUp: Boolean = false,
+    val recognizedProduct: ProductRecognizedUi? = null
+)
+
+data class ProductRecognizedUi(
+    val barcode: String,
+    val title: String,
+    val subtitle: String,
+    val quantityLabel: String?,
+    val suggestedCategoryLabels: List<String>,
+    val preselectedCategoryId: Long?
 )
 
 data class ManualAddUiState(
     val query: String = "",
     val selectedSuggestion: FoodSuggestionUi? = null,
     val suggestions: List<FoodSuggestionUi> = emptyList(),
+    val recognizedProductLabel: String? = null,
     val perishability: PerishabilityType = PerishabilityType.FRESH,
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,
     val expirationDate: LocalDate? = null,
@@ -35,6 +48,10 @@ sealed interface ScanEvent {
     data object OnBackClick : ScanEvent
     data object OnTorchClick : ScanEvent
     data object OnManualClick : ScanEvent
+    data class OnBarcodeChange(val value: String) : ScanEvent
+    data object OnSearchBarcodeClick : ScanEvent
+    data object OnUseRecognizedProductClick : ScanEvent
+    data object OnDismissRecognizedProduct : ScanEvent
 }
 
 sealed interface ManualAddEvent {

@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.domain.model.HomeOverview
+import com.example.pantrypal.domain.model.RecipeCard
+import com.example.pantrypal.domain.model.RecipeSearchResult
 import com.example.pantrypal.domain.model.StorageLocationFilter
+import com.example.pantrypal.domain.usecase.GetHomeSuggestedRecipesUseCase
 import com.example.pantrypal.domain.usecase.GetHomeOverviewUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,6 +22,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     getHomeOverviewUseCase: GetHomeOverviewUseCase,
+    getHomeSuggestedRecipesUseCase: GetHomeSuggestedRecipesUseCase,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -31,6 +35,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             getHomeOverviewUseCase().collect { overview ->
                 _uiState.value = overview.toUiState(_uiState.value)
+            }
+        }
+        viewModelScope.launch {
+            getHomeSuggestedRecipesUseCase().collect { result ->
+                _uiState.update { it.withSuggestedRecipes(result) }
             }
         }
     }
@@ -67,4 +76,36 @@ private fun HomeOverview.toUiState(previous: HomeUiState): HomeUiState =
                 storageLocation = it.storageLocation
             )
         }
+    )
+
+private fun HomeUiState.withSuggestedRecipes(result: RecipeSearchResult): HomeUiState =
+    when (result) {
+        is RecipeSearchResult.Success -> copy(
+            suggestedRecipes = result.recipes.map { it.toHomeUi() },
+            suggestedRecipesMessage = "Dai tuoi ingredienti"
+        )
+        RecipeSearchResult.ConfigMissing -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Configura Spoonacular per vedere suggerimenti"
+        )
+        RecipeSearchResult.Empty -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Aggiungi alimenti per ricevere suggerimenti"
+        )
+        RecipeSearchResult.Error -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Ricette non disponibili al momento"
+        )
+        RecipeSearchResult.Offline -> copy(
+            suggestedRecipes = emptyList(),
+            suggestedRecipesMessage = "Connessione assente per i suggerimenti"
+        )
+    }
+
+private fun RecipeCard.toHomeUi(): HomeRecipeUi =
+    HomeRecipeUi(
+        externalId = externalId,
+        title = title,
+        subtitle = "Suggerita dai tuoi ingredienti",
+        timeLabel = preparationTimeMinutes?.let { "$it min" } ?: "--"
     )

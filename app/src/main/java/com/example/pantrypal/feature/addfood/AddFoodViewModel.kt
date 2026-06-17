@@ -3,12 +3,18 @@ package com.example.pantrypal.feature.addfood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pantrypal.data.pantry.PantryRepository
+import com.example.pantrypal.domain.model.BarcodeProductDraft
+import com.example.pantrypal.domain.model.BarcodeProductLink
+import com.example.pantrypal.domain.model.BarcodeResolution
 import com.example.pantrypal.domain.matching.FoodCategoryMatcher
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.FoodCategory
 import com.example.pantrypal.domain.model.SaveAddedFoodCommand
 import com.example.pantrypal.domain.model.SaveAddedFoodResult
 import com.example.pantrypal.domain.usecase.SaveAddedFoodUseCase
 import com.example.pantrypal.core.util.TextNormalizer
+import com.example.pantrypal.domain.model.toBarcodeProductDraft
+import com.example.pantrypal.domain.usecase.ResolveBarcodeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -24,6 +30,8 @@ class AddFoodViewModel @Inject constructor(
     private val pantryRepository: PantryRepository,
     private val foodCategoryMatcher: FoodCategoryMatcher,
     private val saveAddedFoodUseCase: SaveAddedFoodUseCase,
+    private val resolveBarcodeUseCase: ResolveBarcodeUseCase,
+    private val addFoodFlowStore: AddFoodFlowStore,
     private val textNormalizer: TextNormalizer
 ) : ViewModel() {
     private val _scanState = MutableStateFlow(ScanUiState())
@@ -35,16 +43,53 @@ class AddFoodViewModel @Inject constructor(
     private val _effects = Channel<AddFoodEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
 
+    private var pendingRemoteResolution: BarcodeResolution.FoundRemote? = null
+    private var manualBarcodeProductDraft: BarcodeProductDraft? = null
+
     init {
         viewModelScope.launch { refreshSuggestions("") }
+    }
+
+    fun onManualRouteStarted() {
+        viewModelScope.launch {
+            val prefill = addFoodFlowStore.consumePrefill() ?: return@launch
+            manualBarcodeProductDraft = prefill.barcodeProductDraft
+            val selectedCategory = prefill.selectedCategoryId?.let { pantryRepository.getFoodCategory(it) }
+            _manualState.update {
+                it.copy(
+                    query = prefill.query,
+                    selectedSuggestion = selectedCategory?.toSuggestionUi(),
+                    recognizedProductLabel = prefill.barcodeProductDraft?.productName,
+                    storageLocation = selectedCategory?.defaultStorageLocation ?: it.storageLocation,
+                    perishability = selectedCategory?.defaultPerishability ?: it.perishability,
+                    validationErrors = emptySet()
+                )
+            }
+            refreshSuggestions(prefill.query)
+        }
     }
 
     fun onScanEvent(event: ScanEvent) {
         viewModelScope.launch {
             when (event) {
-                ScanEvent.OnBackClick -> _effects.send(AddFoodEffect.FinishAddFlow)
-                ScanEvent.OnManualClick -> _effects.send(AddFoodEffect.NavigateToManualAdd)
+                ScanEvent.OnBackClick -> {
+                    addFoodFlowStore.clear()
+                    _effects.send(AddFoodEffect.FinishAddFlow)
+                }
+                ScanEvent.OnManualClick -> {
+                    addFoodFlowStore.clear()
+                    _effects.send(AddFoodEffect.NavigateToManualAdd)
+                }
                 ScanEvent.OnTorchClick -> _scanState.update { it.copy(torchEnabled = !it.torchEnabled) }
+                is ScanEvent.OnBarcodeChange -> _scanState.update {
+                    it.copy(barcodeInput = event.value, recognizedProduct = null)
+                }
+                ScanEvent.OnSearchBarcodeClick -> resolveBarcode()
+                ScanEvent.OnUseRecognizedProductClick -> useRecognizedProduct()
+                ScanEvent.OnDismissRecognizedProduct -> {
+                    pendingRemoteResolution = null
+                    _scanState.update { it.copy(recognizedProduct = null) }
+                }
             }
         }
     }
@@ -52,7 +97,10 @@ class AddFoodViewModel @Inject constructor(
     fun onManualEvent(event: ManualAddEvent) {
         viewModelScope.launch {
             when (event) {
-                ManualAddEvent.OnBackClick -> _effects.send(AddFoodEffect.FinishAddFlow)
+                ManualAddEvent.OnBackClick -> {
+                    clearAddFlowState()
+                    _effects.send(AddFoodEffect.FinishAddFlow)
+                }
                 is ManualAddEvent.OnQueryChange -> {
                     _manualState.update {
                         it.copy(
@@ -145,11 +193,12 @@ class AddFoodViewModel @Inject constructor(
                 expirationDate = state.expirationDate,
                 quantity = state.quantity,
                 storageLocation = state.storageLocation,
-                perishability = state.perishability
+                perishability = state.perishability,
+                barcodeProductDraft = manualBarcodeProductDraft
             )
         )) {
             is SaveAddedFoodResult.Success -> {
-                _manualState.value = ManualAddUiState()
+                clearAddFlowState()
                 refreshSuggestions("")
                 _effects.send(AddFoodEffect.FinishAddFlow)
             }
@@ -162,4 +211,111 @@ class AddFoodViewModel @Inject constructor(
             }
         }
     }
+
+    private suspend fun resolveBarcode() {
+        val barcode = _scanState.value.barcodeInput.trim()
+        if (barcode.isBlank()) {
+            _effects.send(AddFoodEffect.ShowSnackbar("Inserisci un barcode"))
+            return
+        }
+        _scanState.update {
+            it.copy(isLookingUp = true, isReading = false, statusLabel = "Ricerca prodotto...", recognizedProduct = null)
+        }
+        when (val resolution = resolveBarcodeUseCase(barcode)) {
+            is BarcodeResolution.KnownLocal -> {
+                addFoodFlowStore.setPrefill(
+                    AddFoodPrefill(
+                        query = resolution.category.name,
+                        selectedCategoryId = resolution.category.id,
+                        barcodeProductDraft = resolution.link.toDraft()
+                    )
+                )
+                _scanState.update { it.copy(isLookingUp = false, statusLabel = "Prodotto gia collegato") }
+                _effects.send(AddFoodEffect.NavigateToManualAdd)
+            }
+            is BarcodeResolution.FoundRemote -> {
+                pendingRemoteResolution = resolution
+                _scanState.update {
+                    it.copy(
+                        isLookingUp = false,
+                        statusLabel = "Prodotto riconosciuto",
+                        recognizedProduct = resolution.toUi()
+                    )
+                }
+            }
+            BarcodeResolution.NotFound -> continueManuallyWithMessage("Barcode non riconosciuto. Inseriscilo manualmente.")
+            BarcodeResolution.NetworkError -> continueManuallyWithMessage("Impossibile cercare il prodotto. Puoi inserirlo manualmente.")
+            BarcodeResolution.InvalidResponse -> continueManuallyWithMessage("Risposta prodotto non valida. Puoi inserirlo manualmente.")
+            BarcodeResolution.RateLimited -> continueManuallyWithMessage("Servizio temporaneamente non disponibile. Puoi inserirlo manualmente.")
+        }
+    }
+
+    private suspend fun useRecognizedProduct() {
+        val resolution = pendingRemoteResolution ?: return
+        val product = resolution.product
+        val query = product.genericName?.takeIf { it.isNotBlank() }
+            ?: product.productName?.takeIf { it.isNotBlank() }
+            ?: product.barcode
+        addFoodFlowStore.setPrefill(
+            AddFoodPrefill(
+                query = query,
+                selectedCategoryId = resolution.preselectedCategoryId,
+                barcodeProductDraft = product.toBarcodeProductDraft()
+            )
+        )
+        pendingRemoteResolution = null
+        _effects.send(AddFoodEffect.NavigateToManualAdd)
+    }
+
+    private suspend fun continueManuallyWithMessage(message: String) {
+        pendingRemoteResolution = null
+        addFoodFlowStore.clear()
+        _scanState.update {
+            it.copy(isLookingUp = false, statusLabel = message, recognizedProduct = null)
+        }
+        _effects.send(AddFoodEffect.ShowSnackbar(message))
+        _effects.send(AddFoodEffect.NavigateToManualAdd)
+    }
+
+    private suspend fun clearAddFlowState() {
+        addFoodFlowStore.clear()
+        pendingRemoteResolution = null
+        manualBarcodeProductDraft = null
+        _manualState.value = ManualAddUiState()
+    }
+
+    private fun FoodCategory.toSuggestionUi(): FoodSuggestionUi =
+        FoodSuggestionUi(
+            id = id,
+            label = name,
+            storageLocation = defaultStorageLocation,
+            perishability = defaultPerishability
+        )
+
+    private fun BarcodeProductLink.toDraft(): BarcodeProductDraft =
+        BarcodeProductDraft(
+            barcode = barcode,
+            productName = productName,
+            genericName = genericName,
+            brand = brand,
+            quantityLabel = quantityLabel,
+            imageUrl = imageUrl,
+            rawCategoryTags = rawCategoryTags?.split("|").orEmpty().filter { it.isNotBlank() },
+            rawFoodGroupTags = rawFoodGroupTags?.split("|").orEmpty().filter { it.isNotBlank() }
+        )
+
+    private fun BarcodeResolution.FoundRemote.toUi(): ProductRecognizedUi =
+        ProductRecognizedUi(
+            barcode = product.barcode,
+            title = product.productName?.takeIf { it.isNotBlank() }
+                ?: product.genericName?.takeIf { it.isNotBlank() }
+                ?: product.barcode,
+            subtitle = listOfNotNull(product.brand, product.genericName)
+                .filter { it.isNotBlank() }
+                .joinToString(" - ")
+                .ifBlank { "Prodotto trovato su Open Food Facts" },
+            quantityLabel = product.quantityLabel,
+            suggestedCategoryLabels = suggestions.map { it.name },
+            preselectedCategoryId = preselectedCategoryId
+        )
 }

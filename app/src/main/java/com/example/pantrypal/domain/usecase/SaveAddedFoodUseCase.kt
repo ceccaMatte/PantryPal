@@ -26,7 +26,8 @@ class SaveAddedFoodUseCase @Inject constructor(
                 pantryRepository.saveAddedFood(
                     categorySelection = requireNotNull(command.categorySelection),
                     expirationDate = requireNotNull(command.expirationDate),
-                    quantity = command.quantity
+                    quantity = command.quantity,
+                    barcodeProductDraft = command.barcodeProductDraft
                 )
             )
         } catch (_: Exception) {

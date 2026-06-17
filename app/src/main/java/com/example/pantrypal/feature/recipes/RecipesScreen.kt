@@ -38,7 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
+import com.example.pantrypal.core.designsystem.ErrorState
 import com.example.pantrypal.core.designsystem.FoodChip
+import com.example.pantrypal.core.designsystem.LoadingState
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
@@ -88,8 +90,21 @@ fun RecipesScreen(
                 .background(PantryColors.Line)
         )
 
-        if (visibleRecipes.isEmpty()) {
-            EmptyState("Nessuna ricetta", "I risultati compariranno qui quando il repository restituisce dati.")
+        if (state.isLoading) {
+            LoadingState("Ricerca ricette...")
+        } else if (state.configMissing && state.selectedTab == RecipeTab.RESULTS) {
+            EmptyState("Spoonacular non configurato", "Aggiungi SPOONACULAR_API_KEY in local.properties per cercare ricette reali.")
+        } else if (state.errorMessage != null) {
+            ErrorState(state.errorMessage)
+        } else if (visibleRecipes.isEmpty()) {
+            EmptyState(
+                "Nessuna ricetta",
+                if (state.selectedTab == RecipeTab.FAVORITES) {
+                    "I preferiti salvati compariranno qui."
+                } else {
+                    "Cerca una ricetta per vedere risultati reali."
+                }
+            )
         } else {
             visibleRecipes.forEach { recipe ->
                 RecipeCard(recipe, onEvent)

@@ -138,6 +138,14 @@ fun ManualAddScreen(
             Text("Seleziona un alimento", color = PantryColors.Error, style = PantryTypography.labelLarge)
         }
 
+        state.recognizedProductLabel?.let { label ->
+            PantryCard(containerColor = PantryColors.Green50) {
+                Text("Prodotto riconosciuto", style = PantryTypography.labelLarge, color = PantryColors.Green700)
+                Text(label, style = PantryTypography.titleMedium)
+                Text("Il barcode verra collegato all'alimento selezionato quando salvi.", color = PantryColors.Muted)
+            }
+        }
+
         Text("Scegli l'alimento corrispondente o creane uno nuovo", color = PantryColors.Muted)
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),

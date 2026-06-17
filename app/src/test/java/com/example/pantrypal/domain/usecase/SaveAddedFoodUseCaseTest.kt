@@ -2,6 +2,8 @@ package com.example.pantrypal.domain.usecase
 
 import com.example.pantrypal.data.pantry.PantryRepository
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.BarcodeProductDraft
+import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
 import com.example.pantrypal.domain.model.FoodCategory
 import com.example.pantrypal.domain.model.FoodCategoryMatchSource
@@ -101,14 +103,18 @@ private class FakePantryRepositoryForAddedFood(
     override fun observeFoodDetail(categoryId: Long): Flow<FoodDetailData?> = emptyFlow()
     override fun observeActiveLotsWithCategories(): Flow<List<LotWithCategory>> = emptyFlow()
     override suspend fun getActiveLotsWithCategories(): List<LotWithCategory> = emptyList()
+    override suspend fun getActiveLotsForCategories(categoryIds: List<Long>): List<LotWithCategory> = emptyList()
+    override suspend fun getFoodCategory(categoryId: Long): FoodCategory? = null
     override suspend fun searchFoodCategories(query: String, limit: Int): List<FoodCategory> = emptyList()
     override suspend fun getFoodCategoryMatchSources(query: String, limit: Int): List<FoodCategoryMatchSource> = emptyList()
     override suspend fun findCategoryByNormalizedName(normalizedName: String): FoodCategory? = null
+    override suspend fun findActiveBarcodeLink(barcode: String): BarcodeProductLink? = null
     override suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long = returnCategoryId
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
         expirationDate: LocalDate,
-        quantity: Int
+        quantity: Int,
+        barcodeProductDraft: BarcodeProductDraft?
     ): Long {
         savedSelection = categorySelection
         savedDate = expirationDate

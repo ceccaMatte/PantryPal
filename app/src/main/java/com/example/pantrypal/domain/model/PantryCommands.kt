@@ -16,7 +16,8 @@ data class SaveAddedFoodCommand(
     val expirationDate: LocalDate?,
     val quantity: Int,
     val storageLocation: StorageLocation,
-    val perishability: PerishabilityType
+    val perishability: PerishabilityType,
+    val barcodeProductDraft: BarcodeProductDraft? = null
 )
 
 enum class SaveAddedFoodValidationError {
@@ -54,6 +55,14 @@ sealed interface SaveFoodDetailChangesResult {
     data class ValidationError(val errors: Set<SaveFoodDetailValidationError>) : SaveFoodDetailChangesResult
     data object StorageError : SaveFoodDetailChangesResult
 }
+
+data class LinkRecipeIngredientToFoodCommand(
+    val aliasOriginal: String,
+    val normalizedAlias: String,
+    val externalIngredientId: String?,
+    val categoryId: Long,
+    val replaceLinkId: Long? = null
+)
 
 data class HomeOverview(
     val username: String?,

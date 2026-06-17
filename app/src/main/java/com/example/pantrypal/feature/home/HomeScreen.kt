@@ -147,7 +147,7 @@ fun HomeScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Ricette Suggerite", style = PantryTypography.headlineMedium)
             Text(
-                "NON DISPONIBILI",
+                state.suggestedRecipesMessage,
                 modifier = Modifier
                     .background(PantryColors.Green50, RoundedCornerShape(12.dp))
                     .padding(10.dp),
@@ -155,8 +155,12 @@ fun HomeScreen(
                 style = PantryTypography.labelLarge
             )
         }
-        state.suggestedRecipes.forEach { recipe ->
-            RecipeSuggestionCard(recipe) { onEvent(HomeEvent.OnRecipeClick(recipe.externalId)) }
+        if (state.suggestedRecipes.isEmpty()) {
+            EmptyState("Nessuna ricetta", state.suggestedRecipesMessage)
+        } else {
+            state.suggestedRecipes.forEach { recipe ->
+                RecipeSuggestionCard(recipe) { onEvent(HomeEvent.OnRecipeClick(recipe.externalId)) }
+            }
         }
         Spacer(Modifier.height(100.dp))
     }
@@ -190,7 +194,6 @@ private fun RecipeSuggestionCard(recipe: HomeRecipeUi, onClick: () -> Unit) {
             }
             Button(
                 onClick = onClick,
-                enabled = false,
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700),
                 shape = RoundedCornerShape(24.dp)
             ) {

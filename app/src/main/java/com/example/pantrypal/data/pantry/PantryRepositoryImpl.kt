@@ -6,11 +6,14 @@ import com.example.pantrypal.core.database.dao.BarcodeProductLinkDao
 import com.example.pantrypal.core.database.dao.ExpiryLotDao
 import com.example.pantrypal.core.database.dao.FoodCategoryDao
 import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
+import com.example.pantrypal.core.database.entity.BarcodeProductLinkEntity
 import com.example.pantrypal.core.database.entity.ExpiryLotEntity
 import com.example.pantrypal.core.database.entity.FoodCategoryEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
 import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.BarcodeProductDraft
+import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.CategoryOrigin
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
 import com.example.pantrypal.domain.model.FoodCategory
@@ -74,6 +77,16 @@ class PantryRepositoryImpl @Inject constructor(
     override suspend fun getActiveLotsWithCategories(): List<LotWithCategory> =
         foodCategoryDao.getActiveLotsWithCategories().map { it.toDomain() }
 
+    override suspend fun getActiveLotsForCategories(categoryIds: List<Long>): List<LotWithCategory> =
+        if (categoryIds.isEmpty()) {
+            emptyList()
+        } else {
+            foodCategoryDao.getActiveLotsForCategories(categoryIds).map { it.toDomain() }
+        }
+
+    override suspend fun getFoodCategory(categoryId: Long): FoodCategory? =
+        foodCategoryDao.getById(categoryId)?.toDomain()
+
     override fun observeActiveLotsWithCategories(): Flow<List<LotWithCategory>> =
         foodCategoryDao.observeActiveLotsWithCategories().map { lots -> lots.map { it.toDomain() } }
 
@@ -114,6 +127,9 @@ class PantryRepositoryImpl @Inject constructor(
     override suspend fun findCategoryByNormalizedName(normalizedName: String): FoodCategory? =
         foodCategoryDao.getByNormalizedName(normalizedName)?.toDomain()
 
+    override suspend fun findActiveBarcodeLink(barcode: String): BarcodeProductLink? =
+        barcodeProductLinkDao.findActiveByBarcode(barcode)?.toDomain()
+
     override suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long {
         val now = Instant.now()
         return database.withTransaction {
@@ -137,7 +153,8 @@ class PantryRepositoryImpl @Inject constructor(
     override suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
         expirationDate: LocalDate,
-        quantity: Int
+        quantity: Int,
+        barcodeProductDraft: BarcodeProductDraft?
     ): Long {
         val now = Instant.now()
         return database.withTransaction {
@@ -162,6 +179,26 @@ class PantryRepositoryImpl @Inject constructor(
                 }
             }
             upsertExpiryLotInTransaction(categoryId, expirationDate, quantity, now)
+            barcodeProductDraft?.let { draft ->
+                barcodeProductLinkDao.upsert(
+                    BarcodeProductLinkEntity(
+                        barcode = draft.barcode,
+                        categoryId = categoryId,
+                        productName = draft.productName,
+                        genericName = draft.genericName,
+                        brand = draft.brand,
+                        quantityLabel = draft.quantityLabel,
+                        imageUrl = draft.imageUrl,
+                        rawCategoryTags = draft.rawCategoryTags.joinToString("|").ifBlank { null },
+                        rawFoodGroupTags = draft.rawFoodGroupTags.joinToString("|").ifBlank { null },
+                        origin = LinkOrigin.USER,
+                        isActive = true,
+                        createdAt = now,
+                        updatedAt = now,
+                        lastUsedAt = now
+                    )
+                )
+            }
             categoryId
         }
     }

@@ -1,5 +1,6 @@
 package com.example.pantrypal.core.navigation
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -220,7 +222,7 @@ private fun PantryNavHost(
         composable(AppRoute.Scan.route) {
             val viewModel: AddFoodViewModel = hiltViewModel()
             val state by viewModel.scanState.collectAsStateWithLifecycle()
-            BackHandler { navController.popBackStack(addOriginRoute, false) }
+            BackHandler { viewModel.onScanEvent(ScanEvent.OnBackClick) }
             LaunchedEffect(viewModel) {
                 viewModel.effects.collect { effect ->
                     handleAddFoodEffect(effect, navController, addOriginRoute, showSnackbar)
@@ -232,8 +234,9 @@ private fun PantryNavHost(
         composable(AppRoute.ManualAdd.route) {
             val viewModel: AddFoodViewModel = hiltViewModel()
             val state by viewModel.manualState.collectAsStateWithLifecycle()
-            BackHandler { navController.popBackStack(addOriginRoute, false) }
+            BackHandler { viewModel.onManualEvent(ManualAddEvent.OnBackClick) }
             LaunchedEffect(viewModel) {
+                viewModel.onManualRouteStarted()
                 viewModel.effects.collect { effect ->
                     handleAddFoodEffect(effect, navController, addOriginRoute, showSnackbar)
                 }
@@ -267,6 +270,7 @@ private fun PantryNavHost(
             route = AppRoute.RecipeDetail.route,
             arguments = listOf(navArgument("recipeId") { type = NavType.StringType })
         ) {
+            val context = LocalContext.current
             val viewModel: RecipeDetailViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             LaunchedEffect(viewModel) {
@@ -274,6 +278,13 @@ private fun PantryNavHost(
                     when (effect) {
                         RecipeDetailEffect.NavigateBack -> navController.popBackStack()
                         is RecipeDetailEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
+                        is RecipeDetailEffect.ShareShoppingList -> {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, effect.text)
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Condividi lista"))
+                        }
                     }
                 }
             }

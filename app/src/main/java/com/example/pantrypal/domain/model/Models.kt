@@ -122,6 +122,17 @@ data class BarcodeProductLink(
     val isActive: Boolean
 )
 
+data class BarcodeProductDraft(
+    val barcode: String,
+    val productName: String,
+    val genericName: String?,
+    val brand: String?,
+    val quantityLabel: String?,
+    val imageUrl: String?,
+    val rawCategoryTags: List<String>,
+    val rawFoodGroupTags: List<String>
+)
+
 data class RecipeIngredientLink(
     val id: Long,
     val categoryId: Long,
@@ -173,12 +184,44 @@ data class RecognizedBarcodeProduct(
     val rawFoodGroupTags: List<String>
 )
 
+fun RecognizedBarcodeProduct.toBarcodeProductDraft(): BarcodeProductDraft =
+    BarcodeProductDraft(
+        barcode = barcode,
+        productName = productName?.takeIf { it.isNotBlank() }
+            ?: genericName?.takeIf { it.isNotBlank() }
+            ?: barcode,
+        genericName = genericName,
+        brand = brand,
+        quantityLabel = quantityLabel,
+        imageUrl = imageUrl,
+        rawCategoryTags = rawCategoryTags,
+        rawFoodGroupTags = rawFoodGroupTags
+    )
+
 sealed interface ExternalProductResult {
     data class Found(val product: RecognizedBarcodeProduct) : ExternalProductResult
     data object NotFound : ExternalProductResult
     data object NetworkError : ExternalProductResult
     data object InvalidResponse : ExternalProductResult
     data object RateLimited : ExternalProductResult
+}
+
+sealed interface BarcodeResolution {
+    data class KnownLocal(
+        val link: BarcodeProductLink,
+        val category: FoodCategory
+    ) : BarcodeResolution
+
+    data class FoundRemote(
+        val product: RecognizedBarcodeProduct,
+        val suggestions: List<FoodCategorySuggestion>,
+        val preselectedCategoryId: Long?
+    ) : BarcodeResolution
+
+    data object NotFound : BarcodeResolution
+    data object NetworkError : BarcodeResolution
+    data object InvalidResponse : BarcodeResolution
+    data object RateLimited : BarcodeResolution
 }
 
 data class RecipeCard(
@@ -194,6 +237,7 @@ data class RecipeSearchQuery(val query: String)
 sealed interface RecipeSearchResult {
     data class Success(val recipes: List<RecipeCard>) : RecipeSearchResult
     data object Empty : RecipeSearchResult
+    data object ConfigMissing : RecipeSearchResult
     data object Offline : RecipeSearchResult
     data object Error : RecipeSearchResult
 }
@@ -215,6 +259,23 @@ data class RecipeIngredientData(
     val externalIngredientId: String?,
     val amount: Double?,
     val unit: String?
+)
+
+enum class RecipeAvailabilityStatus {
+    IN_PANTRY,
+    TO_BUY
+}
+
+data class RecipeIngredientAvailabilityItem(
+    val ingredient: RecipeIngredientData,
+    val status: RecipeAvailabilityStatus,
+    val linkedCategories: List<FoodCategory>,
+    val matchingLinks: List<RecipeIngredientLink>,
+    val totalAvailableQuantity: Int
+)
+
+data class RecipeAvailability(
+    val items: List<RecipeIngredientAvailabilityItem>
 )
 
 data class ExpirationNotificationContent(

@@ -6,6 +6,7 @@ import com.example.pantrypal.data.recipe.RecipeRepository
 import com.example.pantrypal.domain.model.RecipeCard
 import com.example.pantrypal.domain.model.RecipeSearchQuery
 import com.example.pantrypal.domain.model.RecipeSearchResult
+import com.example.pantrypal.domain.usecase.ToggleFavoriteRecipeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -18,7 +19,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class RecipesViewModel @Inject constructor(
-    private val recipeRepository: RecipeRepository
+    private val recipeRepository: RecipeRepository,
+    private val toggleFavoriteRecipeUseCase: ToggleFavoriteRecipeUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RecipesUiState())
     val uiState: StateFlow<RecipesUiState> = _uiState.asStateFlow()
@@ -29,9 +31,7 @@ class RecipesViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             recipeRepository.observeFavoriteRecipes().collect { favorites ->
-                if (favorites.isNotEmpty()) {
-                    _uiState.update { it.copy(favorites = favorites.map { favorite -> favorite.toUi(isFavorite = true) }) }
-                }
+                _uiState.update { it.copy(favorites = favorites.map { favorite -> favorite.toUi(isFavorite = true) }) }
             }
         }
     }
@@ -40,18 +40,16 @@ class RecipesViewModel @Inject constructor(
         viewModelScope.launch {
             when (event) {
                 is RecipesEvent.OnQueryChange -> {
-                    _uiState.update { it.copy(query = event.value) }
-                    search(event.value)
+                    _uiState.update { it.copy(query = event.value, configMissing = false, errorMessage = null) }
+                    if (event.value.isBlank()) {
+                        _uiState.update { it.copy(recipes = emptyList(), isLoading = false) }
+                    } else {
+                        search(event.value)
+                    }
                 }
                 is RecipesEvent.OnTabSelected -> _uiState.update { it.copy(selectedTab = event.tab) }
                 is RecipesEvent.OnRecipeClick -> _effects.send(RecipesEffect.NavigateToRecipeDetail(event.externalId))
-                is RecipesEvent.OnFavoriteClick -> _uiState.update { state ->
-                    state.copy(
-                        recipes = state.recipes.map {
-                            if (it.externalId == event.externalId) it.copy(isFavorite = !it.isFavorite) else it
-                        }
-                    )
-                }
+                is RecipesEvent.OnFavoriteClick -> toggleFavorite(event.externalId)
             }
         }
     }
@@ -61,11 +59,30 @@ class RecipesViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         when (val result = recipeRepository.searchRecipes(RecipeSearchQuery(query))) {
             is RecipeSearchResult.Success -> _uiState.update {
-                it.copy(isLoading = false, recipes = result.recipes.map(RecipeCard::toUi))
+                it.copy(isLoading = false, configMissing = false, recipes = result.recipes.map(RecipeCard::toUi))
             }
             RecipeSearchResult.Empty -> _uiState.update { it.copy(isLoading = false, recipes = emptyList()) }
+            RecipeSearchResult.ConfigMissing -> _uiState.update {
+                it.copy(isLoading = false, recipes = emptyList(), configMissing = true, errorMessage = null)
+            }
             RecipeSearchResult.Offline -> _uiState.update { it.copy(isLoading = false, errorMessage = "Ricerca offline in questo step") }
             RecipeSearchResult.Error -> _uiState.update { it.copy(isLoading = false, errorMessage = "Errore durante la ricerca") }
+        }
+    }
+
+    private suspend fun toggleFavorite(externalId: String) {
+        val detail = recipeRepository.getRecipeDetail(externalId)
+        if (detail == null) {
+            _uiState.update { it.copy(errorMessage = "Dettaglio ricetta non disponibile") }
+            return
+        }
+        val isFavorite = toggleFavoriteRecipeUseCase(detail)
+        _uiState.update { state ->
+            state.copy(
+                recipes = state.recipes.map {
+                    if (it.externalId == externalId) it.copy(isFavorite = isFavorite) else it
+                }
+            )
         }
     }
 }
@@ -76,7 +93,7 @@ private fun RecipeCard.toUi(isFavorite: Boolean = this.isFavorite): RecipeCardUi
         title = title,
         description = "Ricetta pronta da collegare agli ingredienti in dispensa.",
         readyInMinutes = preparationTimeMinutes ?: 20,
-        presentCount = 3,
-        missingCount = 1,
+        presentCount = 0,
+        missingCount = 0,
         isFavorite = isFavorite
     )

@@ -11,7 +11,8 @@ data class HomeUiState(
     val freezerPackages: Int = 0,
     val pantryPackages: Int = 0,
     val expiringFoods: List<HomeExpiringFoodUi> = emptyList(),
-    val suggestedRecipes: List<HomeRecipeUi> = sampleHomeRecipes,
+    val suggestedRecipes: List<HomeRecipeUi> = emptyList(),
+    val suggestedRecipesMessage: String = "Aggiungi alimenti per ricevere suggerimenti",
     val errorMessage: String? = null
 )
 
@@ -41,7 +42,3 @@ sealed interface HomeEffect {
     data class NavigateToRecipeDetail(val recipeId: String) : HomeEffect
     data object OpenAddChoiceSheet : HomeEffect
 }
-
-private val sampleHomeRecipes = listOf(
-    HomeRecipeUi("sample-pollo", "Ricette non ancora disponibili", "Saranno calcolate dai tuoi ingredienti nel prossimo step", "--")
-)

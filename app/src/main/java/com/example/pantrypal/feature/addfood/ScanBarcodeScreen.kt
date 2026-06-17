@@ -21,8 +21,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,12 +42,22 @@ import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanBarcodeScreen(
     state: ScanUiState,
     onEvent: (ScanEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    state.recognizedProduct?.let { product ->
+        ModalBottomSheet(
+            onDismissRequest = { onEvent(ScanEvent.OnDismissRecognizedProduct) },
+            containerColor = PantryColors.Card
+        ) {
+            ProductRecognizedSheet(product = product, onEvent = onEvent)
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -113,12 +127,37 @@ fun ScanBarcodeScreen(
                         .background(PantryColors.Line, RoundedCornerShape(8.dp))
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                    if (state.isReading) {
+                    if (state.isLookingUp || state.isReading) {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), color = PantryColors.Green700, strokeWidth = 3.dp)
                     } else {
                         Icon(Icons.Default.Refresh, contentDescription = null, tint = PantryColors.Green700)
                     }
                     Text(state.statusLabel, style = PantryTypography.titleMedium, color = PantryColors.Muted)
+                }
+                OutlinedTextField(
+                    value = state.barcodeInput,
+                    onValueChange = { onEvent(ScanEvent.OnBarcodeChange(it)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Barcode") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(18.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PantryColors.Green700,
+                        unfocusedBorderColor = PantryColors.Line,
+                        focusedContainerColor = PantryColors.Card,
+                        unfocusedContainerColor = PantryColors.Card
+                    )
+                )
+                Button(
+                    onClick = { onEvent(ScanEvent.OnSearchBarcodeClick) },
+                    enabled = !state.isLookingUp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(if (state.isLookingUp) "Ricerca..." else "Cerca barcode", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Button(
                     onClick = { onEvent(ScanEvent.OnManualClick) },
@@ -131,6 +170,55 @@ fun ScanBarcodeScreen(
                     Text("Inserisci manualmente", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ProductRecognizedSheet(product: ProductRecognizedUi, onEvent: (ScanEvent) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(width = 64.dp, height = 6.dp)
+                .background(PantryColors.Line, RoundedCornerShape(8.dp))
+        )
+        Text("Prodotto riconosciuto", style = PantryTypography.headlineMedium)
+        Text(product.subtitle, color = PantryColors.Muted)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = PantryColors.Background
+        ) {
+            Column(
+                modifier = Modifier.padding(PantrySpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
+            ) {
+                Text(product.title, style = PantryTypography.titleLarge)
+                product.quantityLabel?.let { Text(it, color = PantryColors.Muted) }
+                if (product.suggestedCategoryLabels.isNotEmpty()) {
+                    Text(
+                        "Suggerimenti: ${product.suggestedCategoryLabels.joinToString(", ")}",
+                        color = PantryColors.Green700,
+                        style = PantryTypography.labelLarge
+                    )
+                }
+            }
+        }
+        Button(
+            onClick = { onEvent(ScanEvent.OnUseRecognizedProductClick) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text("Aggiungi o modifica", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
 }

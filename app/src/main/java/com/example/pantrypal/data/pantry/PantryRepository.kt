@@ -2,6 +2,8 @@ package com.example.pantrypal.data.pantry
 
 import com.example.pantrypal.domain.model.CreateFoodCategoryInput
 import com.example.pantrypal.domain.model.AddFoodCategorySelection
+import com.example.pantrypal.domain.model.BarcodeProductDraft
+import com.example.pantrypal.domain.model.BarcodeProductLink
 import com.example.pantrypal.domain.model.FoodCategory
 import com.example.pantrypal.domain.model.FoodCategoryMatchSource
 import com.example.pantrypal.domain.model.FoodDetailDraft
@@ -17,14 +19,18 @@ interface PantryRepository {
     fun observeFoodDetail(categoryId: Long): Flow<FoodDetailData?>
     fun observeActiveLotsWithCategories(): Flow<List<LotWithCategory>>
     suspend fun getActiveLotsWithCategories(): List<LotWithCategory>
+    suspend fun getActiveLotsForCategories(categoryIds: List<Long>): List<LotWithCategory>
+    suspend fun getFoodCategory(categoryId: Long): FoodCategory?
     suspend fun searchFoodCategories(query: String, limit: Int = 8): List<FoodCategory>
     suspend fun getFoodCategoryMatchSources(query: String, limit: Int = 32): List<FoodCategoryMatchSource>
     suspend fun findCategoryByNormalizedName(normalizedName: String): FoodCategory?
+    suspend fun findActiveBarcodeLink(barcode: String): BarcodeProductLink?
     suspend fun createFoodCategory(input: CreateFoodCategoryInput): Long
     suspend fun saveAddedFood(
         categorySelection: AddFoodCategorySelection,
         expirationDate: LocalDate,
-        quantity: Int
+        quantity: Int,
+        barcodeProductDraft: BarcodeProductDraft? = null
     ): Long
     suspend fun saveFoodDetailChanges(draft: FoodDetailDraft)
     suspend fun upsertExpiryLot(categoryId: Long, expirationDate: LocalDate, quantityDelta: Int)

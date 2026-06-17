@@ -26,11 +26,17 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,19 +44,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pantrypal.core.designsystem.EmptyState
+import com.example.pantrypal.core.designsystem.ErrorState
 import com.example.pantrypal.core.designsystem.FoodChip
+import com.example.pantrypal.core.designsystem.LoadingState
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
 import com.example.pantrypal.core.designsystem.PlaceholderImageBox
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailScreen(
     state: RecipeDetailUiState,
     onEvent: (RecipeDetailEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    state.selectedIngredient?.let { ingredient ->
+        ModalBottomSheet(
+            onDismissRequest = { onEvent(RecipeDetailEvent.OnDismissIngredientSheet) },
+            containerColor = PantryColors.Card
+        ) {
+            IngredientLinkSheet(state = state, ingredient = ingredient, onEvent = onEvent)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -75,6 +94,24 @@ fun RecipeDetailScreen(
                     contentDescription = "Preferito",
                     tint = PantryColors.Green700
                 )
+            }
+            IconButton(onClick = { onEvent(RecipeDetailEvent.OnShareClick) }) {
+                Icon(Icons.Default.Share, contentDescription = "Condividi", tint = PantryColors.Green700)
+            }
+        }
+
+        when {
+            state.isLoading -> {
+                LoadingState("Caricamento ricetta...")
+                return@Column
+            }
+            state.errorMessage != null -> {
+                ErrorState(state.errorMessage)
+                return@Column
+            }
+            state.configMissing -> {
+                EmptyState("Spoonacular non configurato", "Configura la chiave API o apri una ricetta preferita salvata.")
+                return@Column
             }
         }
 
@@ -128,7 +165,8 @@ fun RecipeDetailScreen(
         )
 
         Button(
-            onClick = { onEvent(RecipeDetailEvent.OnIngredientClick("manual-link")) },
+            onClick = { state.missingIngredients.firstOrNull()?.let { onEvent(RecipeDetailEvent.OnIngredientClick(it.key)) } },
+            enabled = state.missingIngredients.isNotEmpty(),
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
             shape = RoundedCornerShape(16.dp)
@@ -137,6 +175,73 @@ fun RecipeDetailScreen(
             Text(" Ce l'ho - segna in dispensa", style = PantryTypography.titleMedium)
         }
         Spacer(Modifier.height(104.dp))
+    }
+}
+
+@Composable
+private fun IngredientLinkSheet(
+    state: RecipeDetailUiState,
+    ingredient: RecipeIngredientUi,
+    onEvent: (RecipeDetailEvent) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(PantrySpacing.lg)
+    ) {
+        Text(ingredient.name, style = PantryTypography.headlineMedium)
+        Text("Collega questo ingrediente a un alimento della tua dispensa.", color = PantryColors.Muted)
+        OutlinedTextField(
+            value = state.linkQuery,
+            onValueChange = { onEvent(RecipeDetailEvent.OnLinkQueryChange(it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Cerca alimento...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PantryColors.Green700,
+                unfocusedBorderColor = PantryColors.Line,
+                focusedContainerColor = PantryColors.Card,
+                unfocusedContainerColor = PantryColors.Card
+            )
+        )
+        if (state.linkSuggestions.isEmpty()) {
+            Text("Nessun suggerimento", color = PantryColors.Muted)
+        } else {
+            state.linkSuggestions.forEach { suggestion ->
+                Button(
+                    onClick = { onEvent(RecipeDetailEvent.OnFoodSuggestionClick(suggestion)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (suggestion.isCreateNew) PantryColors.Green50 else PantryColors.Card,
+                        contentColor = PantryColors.Green700
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(suggestion.label, style = PantryTypography.titleMedium)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = { onEvent(RecipeDetailEvent.OnMarkSelectedInPantryClick) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Ce l'ho")
+            }
+            Button(
+                onClick = { onEvent(RecipeDetailEvent.OnMoveSelectedToBuyClick) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.ErrorBg, contentColor = PantryColors.Error),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Da comprare")
+            }
+        }
     }
 }
 
@@ -187,7 +292,7 @@ private fun IngredientRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEvent(RecipeDetailEvent.OnIngredientClick(ingredient.name)) }
+            .clickable { onEvent(RecipeDetailEvent.OnIngredientClick(ingredient.key)) }
             .padding(vertical = PantrySpacing.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)

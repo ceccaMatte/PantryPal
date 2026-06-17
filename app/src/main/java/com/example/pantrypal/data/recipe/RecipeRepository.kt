@@ -15,6 +15,15 @@ interface RecipeRepository {
     suspend fun getFavoriteRecipeDetail(externalId: String): RecipeDetail?
     suspend fun saveFavoriteRecipe(recipe: RecipeDetail)
     suspend fun removeFavoriteRecipe(externalId: String)
+    suspend fun isFavorite(externalId: String): Boolean
     suspend fun findIngredientLinks(normalizedAlias: String, externalIngredientId: String?): List<RecipeIngredientLink>
     suspend fun getIngredientLinksForCategory(categoryId: Long): List<RecipeIngredientLink>
+    suspend fun linkIngredientToFood(
+        aliasOriginal: String,
+        normalizedAlias: String,
+        externalIngredientId: String?,
+        categoryId: Long,
+        language: String?,
+        replaceLinkId: Long? = null
+    ): RecipeIngredientLink?
 }
