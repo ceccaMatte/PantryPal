@@ -5,5 +5,8 @@ import com.example.pantrypal.domain.model.ExpirationNotificationContent
 interface NotificationRepository {
     suspend fun areNotificationsAllowed(): Boolean
     fun createNotificationChannel()
-    fun showExpirationSummaryNotification(input: ExpirationNotificationContent): Boolean
+    fun showExpirationSummaryNotification(
+        input: ExpirationNotificationContent,
+        debug: Boolean = false
+    ): Boolean
 }

@@ -79,7 +79,13 @@ class ProfileViewModel @Inject constructor(
     }
 
     private suspend fun runDebugNotificationCheck() {
-        val message = when (checkExpiryNotificationsUseCase(ignoreAlreadySentToday = true, updateLastNotificationDate = false)) {
+        val message = when (
+            checkExpiryNotificationsUseCase(
+                ignoreAlreadySentToday = true,
+                updateLastNotificationDate = false,
+                debugNotification = true
+            )
+        ) {
             CheckExpiryNotificationsResult.NotificationShown -> "Notifica di scadenza inviata"
             CheckExpiryNotificationsResult.Disabled -> "Attiva le notifiche per testarle"
             CheckExpiryNotificationsResult.PermissionDenied -> "Permesso notifiche non concesso"

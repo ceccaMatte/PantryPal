@@ -21,7 +21,8 @@ class CheckExpiryNotificationsUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         ignoreAlreadySentToday: Boolean = false,
-        updateLastNotificationDate: Boolean = true
+        updateLastNotificationDate: Boolean = true,
+        debugNotification: Boolean = false
     ): CheckExpiryNotificationsResult {
         val settings = settingsRepository.getSettings()
         if (!settings.expirationNotificationsEnabled) return CheckExpiryNotificationsResult.Disabled
@@ -39,7 +40,10 @@ class CheckExpiryNotificationsUseCase @Inject constructor(
         )
         if (summary.totalCount == 0) return CheckExpiryNotificationsResult.NothingToNotify
 
-        val shown = notificationRepository.showExpirationSummaryNotification(summary.toNotificationContent())
+        val shown = notificationRepository.showExpirationSummaryNotification(
+            input = summary.toNotificationContent(),
+            debug = debugNotification
+        )
         return if (shown) {
             if (updateLastNotificationDate) {
                 settingsRepository.setLastExpiryNotificationDate(today)

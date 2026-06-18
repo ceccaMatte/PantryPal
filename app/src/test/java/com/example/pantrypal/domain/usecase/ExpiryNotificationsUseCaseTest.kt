@@ -131,17 +131,26 @@ class ExpiryNotificationsUseCaseTest {
         val result = useCase(
             settingsRepository = settingsRepository,
             notificationRepository = notificationRepository
-        ).invoke(ignoreAlreadySentToday = true, updateLastNotificationDate = false)
+        ).invoke(
+            ignoreAlreadySentToday = true,
+            updateLastNotificationDate = false,
+            debugNotification = true
+        )
 
         assertEquals(CheckExpiryNotificationsResult.NotificationShown, result)
         assertEquals(1, notificationRepository.showCount)
+        assertTrue(notificationRepository.lastDebug)
         assertEquals(today, settingsRepository.current.lastExpiryNotificationDate)
 
         settingsRepository.setLastExpiryNotificationDate(yesterday)
         useCase(
             settingsRepository = settingsRepository,
             notificationRepository = notificationRepository
-        ).invoke(ignoreAlreadySentToday = true, updateLastNotificationDate = false)
+        ).invoke(
+            ignoreAlreadySentToday = true,
+            updateLastNotificationDate = false,
+            debugNotification = true
+        )
         assertEquals(yesterday, settingsRepository.current.lastExpiryNotificationDate)
     }
 
@@ -158,6 +167,7 @@ class ExpiryNotificationsUseCaseTest {
 
         assertEquals(CheckExpiryNotificationsResult.NotificationShown, result)
         assertEquals(1, notificationRepository.showCount)
+        assertFalse(notificationRepository.lastDebug)
         assertEquals(today, settingsRepository.current.lastExpiryNotificationDate)
     }
 
@@ -221,11 +231,16 @@ private class FakeNotificationRepository(
     private val showSucceeds: Boolean = true
 ) : NotificationRepository {
     var showCount = 0
+    var lastDebug = false
     var lastContent: ExpirationNotificationContent? = null
     override suspend fun areNotificationsAllowed(): Boolean = allowed
     override fun createNotificationChannel() = Unit
-    override fun showExpirationSummaryNotification(input: ExpirationNotificationContent): Boolean {
+    override fun showExpirationSummaryNotification(
+        input: ExpirationNotificationContent,
+        debug: Boolean
+    ): Boolean {
         showCount++
+        lastDebug = debug
         lastContent = input
         return showSucceeds
     }

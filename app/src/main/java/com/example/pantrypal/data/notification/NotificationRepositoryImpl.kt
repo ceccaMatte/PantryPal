@@ -15,6 +15,7 @@ import com.example.pantrypal.MainActivity
 import com.example.pantrypal.R
 import com.example.pantrypal.domain.model.ExpirationNotificationContent
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +23,8 @@ import javax.inject.Singleton
 class NotificationRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : NotificationRepository {
+    private val debugNotificationIds = AtomicInteger(DEBUG_NOTIFICATION_ID_START)
+
     override suspend fun areNotificationsAllowed(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
@@ -39,7 +42,10 @@ class NotificationRepositoryImpl @Inject constructor(
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    override fun showExpirationSummaryNotification(input: ExpirationNotificationContent): Boolean {
+    override fun showExpirationSummaryNotification(
+        input: ExpirationNotificationContent,
+        debug: Boolean
+    ): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -58,8 +64,9 @@ class NotificationRepositoryImpl @Inject constructor(
             .setAutoCancel(true)
             .build()
 
+        val notificationId = if (debug) debugNotificationIds.getAndIncrement() else NOTIFICATION_ID
         return runCatching {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
         }.isSuccess
     }
 
@@ -75,5 +82,6 @@ class NotificationRepositoryImpl @Inject constructor(
     companion object {
         const val CHANNEL_ID = "expiry_alerts"
         const val NOTIFICATION_ID = 1001
+        private const val DEBUG_NOTIFICATION_ID_START = 2001
     }
 }
