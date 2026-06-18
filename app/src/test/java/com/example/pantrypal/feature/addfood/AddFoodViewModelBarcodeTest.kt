@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -106,12 +107,14 @@ class AddFoodViewModelBarcodeTest {
     }
 
     @Test
-    fun `not found resets isProcessingBarcode to false`() = runTest {
+    fun `not found resets isProcessingBarcode and shows retry button for camera scan`() = runTest {
         val vm = buildViewModel(remoteLookup = { ExternalProductResult.NotFound })
 
         vm.onScanEvent(ScanEvent.OnBarcodeDetected("1234567890123"))
 
         assertFalse(vm.scanState.value.isProcessingBarcode)
+        assertTrue("Camera NotFound should show retry button", vm.scanState.value.showRetryButton)
+        assertNull("detectedBarcode should be cleared after NotFound", vm.scanState.value.detectedBarcode)
     }
 
     @Test
@@ -125,6 +128,53 @@ class AddFoodViewModelBarcodeTest {
         deferred.cancel()
         vm.onScanEvent(ScanEvent.OnRetryScanClick)
         assertFalse(vm.scanState.value.isProcessingBarcode)
+    }
+
+    // --- Barcode validation ---
+
+    @Test
+    fun `OnBarcodeDetected with non-numeric barcode is ignored`() = runTest {
+        val callCount = AtomicInteger(0)
+        val vm = buildViewModel(remoteLookup = { callCount.incrementAndGet(); ExternalProductResult.NotFound })
+
+        vm.onScanEvent(ScanEvent.OnBarcodeDetected("AAABBBCCC123"))
+
+        assertEquals("Non-numeric barcode should not trigger resolve", 0, callCount.get())
+        assertFalse(vm.scanState.value.isProcessingBarcode)
+    }
+
+    @Test
+    fun `OnBarcodeDetected with wrong length barcode is ignored`() = runTest {
+        val callCount = AtomicInteger(0)
+        val vm = buildViewModel(remoteLookup = { callCount.incrementAndGet(); ExternalProductResult.NotFound })
+
+        vm.onScanEvent(ScanEvent.OnBarcodeDetected("12345"))  // 5 digits, not 8/12/13
+
+        assertEquals("Wrong-length barcode should not trigger resolve", 0, callCount.get())
+        assertFalse(vm.scanState.value.isProcessingBarcode)
+    }
+
+    @Test
+    fun `stale barcode result after retry is ignored`() = runTest {
+        val deferred = CompletableDeferred<ExternalProductResult>()
+        val vm = buildViewModel(remoteLookup = { deferred.await() })
+
+        // Start camera scan for barcode "A"
+        vm.onScanEvent(ScanEvent.OnBarcodeDetected("1234567890123"))
+        assertTrue(vm.scanState.value.isProcessingBarcode)
+        assertEquals("1234567890123", vm.scanState.value.detectedBarcode)
+
+        // User retries before result arrives
+        vm.onScanEvent(ScanEvent.OnRetryScanClick)
+        assertFalse(vm.scanState.value.isProcessingBarcode)
+        assertNull(vm.scanState.value.detectedBarcode)
+
+        // Stale result arrives
+        deferred.complete(ExternalProductResult.NotFound)
+
+        // Stale result should be ignored: no showRetryButton, no status change
+        assertFalse("Stale result should not set showRetryButton", vm.scanState.value.showRetryButton)
+        assertEquals("Inquadra il codice a barre", vm.scanState.value.statusLabel)
     }
 
     // --- Permission ---

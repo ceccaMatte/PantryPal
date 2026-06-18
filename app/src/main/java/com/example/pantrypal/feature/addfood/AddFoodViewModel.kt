@@ -16,6 +16,7 @@ import com.example.pantrypal.domain.usecase.SaveAddedFoodUseCase
 import com.example.pantrypal.core.util.TextNormalizer
 import com.example.pantrypal.domain.model.toBarcodeProductDraft
 import com.example.pantrypal.domain.usecase.ResolveBarcodeUseCase
+import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -90,7 +91,16 @@ class AddFoodViewModel @Inject constructor(
                 ScanEvent.OnUseRecognizedProductClick -> useRecognizedProduct()
                 ScanEvent.OnDismissRecognizedProduct -> {
                     pendingRemoteResolution = null
-                    _scanState.update { it.copy(recognizedProduct = null, isProcessingBarcode = false) }
+                    _scanState.update {
+                        it.copy(
+                            recognizedProduct = null,
+                            isProcessingBarcode = false,
+                            isLookingUp = false,
+                            detectedBarcode = null,
+                            showRetryButton = false,
+                            analyzerResetKey = it.analyzerResetKey + 1
+                        )
+                    }
                 }
                 ScanEvent.OnRequestCameraPermissionClick -> {
                     _scanState.update { it.copy(isRequestingPermission = true) }
@@ -102,18 +112,30 @@ class AddFoodViewModel @Inject constructor(
                     }
                 }
                 is ScanEvent.OnBarcodeDetected -> {
-                    if (_scanState.value.isProcessingBarcode) return@launch
+                    if (_scanState.value.isProcessingBarcode) {
+                        Log.d(TAG, "Barcode ignored because already processing: ${event.value}")
+                        return@launch
+                    }
                     val barcode = event.value.trim()
-                    if (barcode.isBlank()) return@launch
-                    _scanState.update { it.copy(isProcessingBarcode = true) }
+                    if (!isSupportedProductBarcode(barcode)) {
+                        Log.d(TAG, "Barcode ignored because invalid: $barcode")
+                        return@launch
+                    }
+                    _scanState.update {
+                        it.copy(isProcessingBarcode = true, detectedBarcode = barcode, showRetryButton = false)
+                    }
                     resolveBarcode(barcode)
                 }
                 ScanEvent.OnRetryScanClick -> {
                     _scanState.update {
                         it.copy(
                             isProcessingBarcode = false,
+                            isLookingUp = false,
+                            detectedBarcode = null,
                             statusLabel = "Inquadra il codice a barre",
-                            recognizedProduct = null
+                            recognizedProduct = null,
+                            showRetryButton = false,
+                            analyzerResetKey = it.analyzerResetKey + 1
                         )
                     }
                 }
@@ -257,11 +279,20 @@ class AddFoodViewModel @Inject constructor(
             _effects.send(AddFoodEffect.ShowSnackbar("Inserisci un barcode"))
             return
         }
+        // Capture whether this resolve was triggered by the camera before any state changes
+        val isFromCamera = _scanState.value.detectedBarcode != null
+        Log.d(TAG, "ResolveBarcode start: $barcode isFromCamera=$isFromCamera")
         _scanState.update {
             it.copy(isLookingUp = true, isReading = false, statusLabel = "Ricerca prodotto...", recognizedProduct = null)
         }
         when (val resolution = resolveBarcodeUseCase(barcode)) {
             is BarcodeResolution.KnownLocal -> {
+                if (isFromCamera && _scanState.value.detectedBarcode != barcode) {
+                    Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                    _scanState.update { it.copy(isLookingUp = false) }
+                    return
+                }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> KnownLocal")
                 addFoodFlowStore.setPrefill(
                     AddFoodPrefill(
                         query = resolution.category.name,
@@ -270,11 +301,20 @@ class AddFoodViewModel @Inject constructor(
                     )
                 )
                 _scanState.update {
-                    it.copy(isLookingUp = false, isProcessingBarcode = false, statusLabel = "Prodotto già collegato")
+                    it.copy(
+                        isLookingUp = false, isProcessingBarcode = false,
+                        detectedBarcode = null, statusLabel = "Prodotto già collegato"
+                    )
                 }
                 _effects.send(AddFoodEffect.NavigateToManualAdd)
             }
             is BarcodeResolution.FoundRemote -> {
+                if (isFromCamera && _scanState.value.detectedBarcode != barcode) {
+                    Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                    _scanState.update { it.copy(isLookingUp = false) }
+                    return
+                }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> FoundRemote")
                 pendingRemoteResolution = resolution
                 _scanState.update {
                     it.copy(
@@ -286,22 +326,82 @@ class AddFoodViewModel @Inject constructor(
                 }
             }
             BarcodeResolution.NotFound -> {
-                _scanState.update { it.copy(isProcessingBarcode = false) }
-                continueManuallyWithMessage("Barcode non riconosciuto. Inseriscilo manualmente.")
+                _scanState.update { it.copy(isProcessingBarcode = false, isLookingUp = false) }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> NotFound")
+                if (isFromCamera) {
+                    if (_scanState.value.detectedBarcode != barcode) {
+                        Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                        return
+                    }
+                    _scanState.update {
+                        it.copy(statusLabel = "Barcode non riconosciuto", showRetryButton = true, detectedBarcode = null)
+                    }
+                } else {
+                    continueManuallyWithMessage("Barcode non riconosciuto. Inseriscilo manualmente.")
+                }
             }
             BarcodeResolution.NetworkError -> {
-                _scanState.update { it.copy(isProcessingBarcode = false) }
-                continueManuallyWithMessage("Impossibile cercare il prodotto. Puoi inserirlo manualmente.")
+                _scanState.update { it.copy(isProcessingBarcode = false, isLookingUp = false) }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> NetworkError")
+                if (isFromCamera) {
+                    if (_scanState.value.detectedBarcode != barcode) {
+                        Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                        return
+                    }
+                    _scanState.update {
+                        it.copy(
+                            statusLabel = "Impossibile cercare il prodotto",
+                            showRetryButton = true, detectedBarcode = null
+                        )
+                    }
+                    _effects.send(AddFoodEffect.ShowSnackbar("Impossibile cercare il prodotto. Controlla la connessione."))
+                } else {
+                    continueManuallyWithMessage("Impossibile cercare il prodotto. Puoi inserirlo manualmente.")
+                }
             }
             BarcodeResolution.InvalidResponse -> {
-                _scanState.update { it.copy(isProcessingBarcode = false) }
-                continueManuallyWithMessage("Risposta prodotto non valida. Puoi inserirlo manualmente.")
+                _scanState.update { it.copy(isProcessingBarcode = false, isLookingUp = false) }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> InvalidResponse")
+                if (isFromCamera) {
+                    if (_scanState.value.detectedBarcode != barcode) {
+                        Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                        return
+                    }
+                    _scanState.update {
+                        it.copy(
+                            statusLabel = "Risposta prodotto non valida",
+                            showRetryButton = true, detectedBarcode = null
+                        )
+                    }
+                } else {
+                    continueManuallyWithMessage("Risposta prodotto non valida. Puoi inserirlo manualmente.")
+                }
             }
             BarcodeResolution.RateLimited -> {
-                _scanState.update { it.copy(isProcessingBarcode = false) }
-                continueManuallyWithMessage("Servizio temporaneamente non disponibile. Puoi inserirlo manualmente.")
+                _scanState.update { it.copy(isProcessingBarcode = false, isLookingUp = false) }
+                Log.d(TAG, "ResolveBarcode result: $barcode -> RateLimited")
+                if (isFromCamera) {
+                    if (_scanState.value.detectedBarcode != barcode) {
+                        Log.d(TAG, "Ignoring stale barcode result: $barcode")
+                        return
+                    }
+                    _scanState.update {
+                        it.copy(
+                            statusLabel = "Servizio non disponibile, riprova",
+                            showRetryButton = true, detectedBarcode = null
+                        )
+                    }
+                    _effects.send(AddFoodEffect.ShowSnackbar("Servizio temporaneamente non disponibile."))
+                } else {
+                    continueManuallyWithMessage("Servizio temporaneamente non disponibile. Puoi inserirlo manualmente.")
+                }
             }
         }
+    }
+
+    private fun isSupportedProductBarcode(value: String): Boolean {
+        val v = value.trim()
+        return v.all { it.isDigit() } && v.length in setOf(8, 12, 13)
     }
 
     private suspend fun useRecognizedProduct() {
@@ -358,6 +458,10 @@ class AddFoodViewModel @Inject constructor(
             rawCategoryTags = rawCategoryTags?.split("|").orEmpty().filter { it.isNotBlank() },
             rawFoodGroupTags = rawFoodGroupTags?.split("|").orEmpty().filter { it.isNotBlank() }
         )
+
+    companion object {
+        private const val TAG = "PantryPalScan"
+    }
 
     private fun BarcodeResolution.FoundRemote.toUi(): ProductRecognizedUi =
         ProductRecognizedUi(

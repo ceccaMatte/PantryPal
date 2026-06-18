@@ -86,9 +86,9 @@ fun ScanBarcodeScreen(
         BarcodeAnalyzer { barcode -> onEvent(ScanEvent.OnBarcodeDetected(barcode)) }
     }
 
-    // Reset analyzer when processing finishes (retry / dismiss)
-    LaunchedEffect(state.isProcessingBarcode) {
-        if (!state.isProcessingBarcode) barcodeAnalyzer.reset()
+    // Reset analyzer only on explicit user retry/dismiss (analyzerResetKey increments)
+    LaunchedEffect(state.analyzerResetKey) {
+        barcodeAnalyzer.reset()
     }
 
     // Bind camera when permission is granted
@@ -244,7 +244,11 @@ fun ScanBarcodeScreen(
                     state.isLookingUp || state.isProcessingBarcode -> ScanningActiveContent(
                         label = if (state.isLookingUp) "Ricerca prodotto…" else "Analisi barcode…"
                     )
-                    else -> ScanReadyContent(label = state.statusLabel)
+                    else -> ScanReadyContent(
+                        label = state.statusLabel,
+                        showRetry = state.showRetryButton,
+                        onRetry = { onEvent(ScanEvent.OnRetryScanClick) }
+                    )
                 }
 
                 Button(
@@ -331,13 +335,28 @@ private fun ScanningActiveContent(label: String) {
 }
 
 @Composable
-private fun ScanReadyContent(label: String) {
+private fun ScanReadyContent(
+    label: String,
+    showRetry: Boolean = false,
+    onRetry: () -> Unit = {}
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
     ) {
         Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = PantryColors.Green700)
         Text(label, style = PantryTypography.titleMedium, color = PantryColors.Muted)
+    }
+    if (showRetry) {
+        OutlinedButton(
+            onClick = onRetry,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text("Riprova scansione", style = PantryTypography.titleMedium)
+        }
     }
 }
 

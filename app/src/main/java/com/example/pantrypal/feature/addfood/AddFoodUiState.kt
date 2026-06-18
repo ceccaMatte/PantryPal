@@ -16,6 +16,9 @@ data class ScanUiState(
     val isRequestingPermission: Boolean = false,
     val isCameraReady: Boolean = false,
     val isProcessingBarcode: Boolean = false,
+    val detectedBarcode: String? = null,
+    val analyzerResetKey: Int = 0,
+    val showRetryButton: Boolean = false,
 )
 
 data class ProductRecognizedUi(
