@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -82,13 +81,6 @@ fun ProfileScreen(
 
         SectionLabel("IMPOSTAZIONI")
         PantryCard {
-            SettingRow(Icons.Default.Public, "Lingua", "Italiano")
-            Spacer(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(PantryColors.Line)
-            )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
                 IconBadge(Icons.Default.DarkMode)
                 Column(modifier = Modifier.weight(1f)) {

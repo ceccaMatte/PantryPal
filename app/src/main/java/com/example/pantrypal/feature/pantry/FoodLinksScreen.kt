@@ -1,7 +1,6 @@
 package com.example.pantrypal.feature.pantry
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,15 +28,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -69,7 +68,11 @@ fun FoodLinksScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg), verticalAlignment = Alignment.Top) {
                 Icon(Icons.Default.Info, contentDescription = null, tint = PantryColors.Green700)
                 Text(
-                    "Questi prodotti e nomi aiutano PantryPal a riconoscere automaticamente ${state.name} da barcode e ricette.",
+                    buildAnnotatedString {
+                        append("Questi prodotti e nomi aiutano PantryPal a riconoscere automaticamente ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(state.name) }
+                        append(" da barcode e ricette.")
+                    },
                     color = PantryColors.InkSoft
                 )
             }
@@ -79,27 +82,22 @@ fun FoodLinksScreen(
         if (state.scannedProducts.isEmpty()) {
             PantryCard {
                 Text("Nessun prodotto collegato", style = PantryTypography.titleMedium)
-                Text("I prodotti da barcode appariranno qui nei prossimi step.", color = PantryColors.Muted)
+                Text("I prodotti da barcode appariranno qui.", color = PantryColors.Muted)
             }
         } else {
-            state.scannedProducts.forEach { product ->
-                PantryCard {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-                        PlaceholderImageBox(modifier = Modifier.size(70.dp), background = PantryColors.WarningBg.copy(alpha = 0.55f))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(product.productName, style = PantryTypography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(product.subtitle, color = PantryColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { onEvent(FoodDetailEvent.OnRemoveBarcodeClick(product.barcode)) }
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = PantryColors.Error)
-                            Text(" Rimuovi", color = PantryColors.Error, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }   
-            }   
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
+            ) {
+                state.scannedProducts.forEach { product ->
+                    FoodChip(
+                        label = product.productName,
+                        icon = Icons.Default.Close,
+                        selected = false,
+                        onClick = { onEvent(FoodDetailEvent.OnRemoveBarcodeClick(product.barcode)) }
+                    )
+                }
+            }
         }
 
         SectionLabel("NOMI NELLE RICETTE")

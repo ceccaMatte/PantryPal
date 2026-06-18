@@ -227,7 +227,7 @@ fun ManualAddScreen(
             onRemoveClick = { onEvent(ManualAddEvent.OnRemoveLotClick(it)) },
             onMinusClick = { onEvent(ManualAddEvent.OnQuantityMinus(it)) },
             onPlusClick = { onEvent(ManualAddEvent.OnQuantityPlus(it)) },
-            showAsSingleCard = false
+            showAsSingleCard = true
         )
 
         Button(

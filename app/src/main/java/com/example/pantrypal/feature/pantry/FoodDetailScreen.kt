@@ -183,6 +183,33 @@ fun FoodDetailScreen(
             onPlusClick = { onEvent(FoodDetailEvent.OnLotPlusClick(it)) }
         )
 
+        PantryCard(
+            containerColor = PantryColors.Green50,
+            onClick = { onEvent(FoodDetailEvent.OnManageLinksClick) }
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(PantryColors.Green700, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Barcode e nomi ricetta", style = PantryTypography.titleMedium, color = PantryColors.Ink)
+                    val total = state.scannedProducts.size + state.recipeAliases.size
+                    Text(
+                        if (total == 0) "Nessun collegamento configurato"
+                        else "$total collegament${if (total == 1) "o" else "i"} attiv${if (total == 1) "o" else "i"}",
+                        color = PantryColors.Green700,
+                        style = PantryTypography.labelLarge
+                    )
+                }
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Green700)
+            }
+        }
+
         Button(
             onClick = { onEvent(FoodDetailEvent.OnSaveClick) },
             enabled = state.isDirty && !state.isSaving,
@@ -192,20 +219,6 @@ fun FoodDetailScreen(
         ) {
             Icon(Icons.Default.Save, contentDescription = null)
             Text(if (state.isSaving) " Salvataggio..." else " Salva modifiche", style = PantryTypography.titleMedium)
-        }
-
-        PantryCard(
-            containerColor = PantryColors.Green50,
-            onClick = { onEvent(FoodDetailEvent.OnManageLinksClick) }
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = PantryColors.Green700)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Collegamenti alimento", style = PantryTypography.titleMedium, color = PantryColors.Green700)
-                    Text("Aiuta PantryPal a riconoscere prodotti e nomi ricetta.", color = PantryColors.Muted)
-                }
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Green700)
-            }
         }
         Spacer(Modifier.height(104.dp))
     }

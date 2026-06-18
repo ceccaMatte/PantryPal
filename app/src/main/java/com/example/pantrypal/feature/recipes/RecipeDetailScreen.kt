@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -261,7 +263,12 @@ private fun IngredientRow(
                 }
             }
             Text(ingredient.amountLabel, color = PantryColors.Green700, style = PantryTypography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PantryColors.Muted, modifier = Modifier.size(20.dp))
+            Icon(
+                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = PantryColors.Muted,
+                modifier = Modifier.size(22.dp)
+            )
         }
 
         if (isExpanded) {
@@ -283,26 +290,77 @@ private fun IngredientInlineEditor(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isPresent) PantryColors.Green50 else PantryColors.Card, RoundedCornerShape(14.dp))
+            .background(if (isPresent) PantryColors.Green50 else PantryColors.ErrorBg.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
             .padding(PantrySpacing.md),
         verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
     ) {
         if (isPresent) {
-            Text("Usa nella ricetta", style = PantryTypography.labelLarge, color = PantryColors.Muted)
-            if (ingredient.availableCategories.isEmpty()) {
+            val count = ingredient.availableCategories.size
+            if (count > 0) {
+                Text(
+                    "$count CORRISPONDENZ${if (count == 1) "A" else "E"} IN DISPENSA",
+                    style = PantryTypography.labelLarge,
+                    color = PantryColors.Green700
+                )
+                ingredient.availableCategories.forEach { category ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onEvent(RecipeDetailEvent.OnAvailableCategoryClick(ingredient.key, category.categoryId)) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (category.selected) PantryColors.Card else PantryColors.Background,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (category.selected) PantryColors.Green700 else PantryColors.Line
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = PantrySpacing.md, vertical = PantrySpacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+                        ) {
+                            Icon(
+                                Icons.Default.Inventory2,
+                                contentDescription = null,
+                                tint = PantryColors.Green700,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                category.label,
+                                style = PantryTypography.titleMedium,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                if (category.selected) Icons.Default.CheckCircleOutline else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (category.selected) PantryColors.Green700 else PantryColors.Line,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
                 Text("Segnato manualmente in questa ricetta", color = PantryColors.Green700, style = PantryTypography.labelLarge)
             }
-            ingredient.availableCategories.forEach { category ->
-                Button(
-                    onClick = { onEvent(RecipeDetailEvent.OnAvailableCategoryClick(ingredient.key, category.categoryId)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (category.selected) PantryColors.Green700 else PantryColors.Card,
-                        contentColor = if (category.selected) Color.White else PantryColors.Green700
-                    ),
-                    shape = RoundedCornerShape(14.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = { onEvent(RecipeDetailEvent.OnMoveSelectedToBuyClick) },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                 ) {
-                    Text(category.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Sposta in \"Da comprare\"", color = PantryColors.Error, style = PantryTypography.labelLarge)
+                }
+                Button(
+                    onClick = { onEvent(RecipeDetailEvent.OnManageIngredientLinksClick(ingredient.key)) },
+                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Gestisci", maxLines = 1)
                 }
             }
         } else {
@@ -314,36 +372,28 @@ private fun IngredientInlineEditor(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text("Nessuno presente in dispensa", color = PantryColors.Muted, style = PantryTypography.labelLarge)
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
-            if (isPresent) {
-                Button(
-                    onClick = { onEvent(RecipeDetailEvent.OnMoveSelectedToBuyClick) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.ErrorBg, contentColor = PantryColors.Error),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text("Da comprare", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            } else {
-                Button(
-                    onClick = { onEvent(RecipeDetailEvent.OnMarkSelectedInPantryClick) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text("Ce l'ho", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            Text(
+                "Non risulta in dispensa. Ce l'hai già? Segnalo come presente per toglierlo dalla lista.",
+                color = PantryColors.Muted,
+                style = PantryTypography.labelLarge
+            )
+            Button(
+                onClick = { onEvent(RecipeDetailEvent.OnMarkSelectedInPantryClick) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(" Ce l'ho — segna in dispensa", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Button(
                 onClick = { onEvent(RecipeDetailEvent.OnManageIngredientLinksClick(ingredient.key)) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green50, contentColor = PantryColors.Green700),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Gestisci", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Collega alimento", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

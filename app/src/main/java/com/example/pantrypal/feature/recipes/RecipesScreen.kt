@@ -191,8 +191,8 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
         Spacer(Modifier.height(PantrySpacing.sm))
         Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
             if (recipe.presentCount != null && recipe.missingCount != null) {
-                FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline, modifier = Modifier.widthIn(max = 150.dp))
-                FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info, modifier = Modifier.widthIn(max = 150.dp))
+                FoodChip(label = "${recipe.presentCount} presenti", icon = Icons.Default.CheckCircleOutline, selected = true, modifier = Modifier.widthIn(max = 150.dp))
+                FoodChip(label = "${recipe.missingCount} mancanti", icon = Icons.Default.Info, selected = false, modifier = Modifier.widthIn(max = 150.dp))
             } else {
                 FoodChip(label = "Da collegare", icon = Icons.Default.Info)
             }
