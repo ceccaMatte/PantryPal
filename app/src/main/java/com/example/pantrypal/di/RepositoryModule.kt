@@ -13,6 +13,8 @@ import com.example.pantrypal.data.recipe.RecipeRepositoryImpl
 import com.example.pantrypal.data.settings.SettingsRepository
 import com.example.pantrypal.data.settings.SettingsRepositoryImpl
 import com.example.pantrypal.core.util.DateProvider
+import com.example.pantrypal.core.image.FileImageStorage
+import com.example.pantrypal.core.image.ImageStorage
 import com.example.pantrypal.core.util.SystemDateProvider
 import dagger.Binds
 import dagger.Module
@@ -50,4 +52,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindDateProvider(impl: SystemDateProvider): DateProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindImageStorage(impl: FileImageStorage): ImageStorage
 }

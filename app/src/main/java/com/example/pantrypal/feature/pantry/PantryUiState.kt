@@ -18,6 +18,7 @@ data class PantryUiState(
 data class PantryRowUi(
     val categoryId: Long,
     val name: String,
+    val imageUri: String?,
     val storageLocation: StorageLocation,
     val perishability: PerishabilityType,
     val totalQuantity: Int,
@@ -28,6 +29,7 @@ data class PantryRowUi(
 data class ExpiringFoodCardUi(
     val categoryId: Long,
     val name: String,
+    val imageUri: String?,
     val expiringQuantity: Int,
     val expirationLabel: String,
     val storageLocation: StorageLocation,

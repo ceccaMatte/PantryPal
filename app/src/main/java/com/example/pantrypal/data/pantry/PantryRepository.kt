@@ -32,6 +32,7 @@ interface PantryRepository {
         lots: List<AddFoodLotDraft>,
         barcodeProductDraft: BarcodeProductDraft? = null
     ): Long
+    suspend fun updateFoodCategoryImageIfEmpty(categoryId: Long, imageUri: String): Boolean
     suspend fun saveFoodDetailChanges(draft: FoodDetailDraft)
     suspend fun upsertExpiryLot(categoryId: Long, expirationDate: LocalDate, quantityDelta: Int)
     suspend fun decrementSingleLotCategory(categoryId: Long): Boolean

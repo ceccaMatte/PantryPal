@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
+import com.example.pantrypal.core.designsystem.ProductImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -381,18 +382,26 @@ private fun ProductRecognizedSheet(product: ProductRecognizedUi, onEvent: (ScanE
             shape = RoundedCornerShape(18.dp),
             color = PantryColors.Background
         ) {
-            Column(
+            Row(
                 modifier = Modifier.padding(PantrySpacing.lg),
-                verticalArrangement = Arrangement.spacedBy(PantrySpacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(product.title, style = PantryTypography.titleLarge)
-                product.quantityLabel?.let { Text(it, color = PantryColors.Muted) }
-                if (product.suggestedCategoryLabels.isNotEmpty()) {
-                    Text(
-                        "Suggerimenti: ${product.suggestedCategoryLabels.joinToString(", ")}",
-                        color = PantryColors.Green700,
-                        style = PantryTypography.labelLarge
-                    )
+                ProductImage(
+                    imageUrl = product.imageUrl,
+                    modifier = Modifier.size(78.dp),
+                    background = PantryColors.WarningBg.copy(alpha = 0.55f)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(PantrySpacing.xs), modifier = Modifier.weight(1f)) {
+                    Text(product.title, style = PantryTypography.titleLarge)
+                    product.quantityLabel?.let { Text(it, color = PantryColors.Muted) }
+                    if (product.suggestedCategoryLabels.isNotEmpty()) {
+                        Text(
+                            "Suggerimenti: ${product.suggestedCategoryLabels.joinToString(", ")}",
+                            color = PantryColors.Green700,
+                            style = PantryTypography.labelLarge
+                        )
+                    }
                 }
             }
         }

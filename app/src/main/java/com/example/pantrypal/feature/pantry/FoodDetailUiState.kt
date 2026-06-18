@@ -7,6 +7,7 @@ import java.time.LocalDate
 data class FoodDetailUiState(
     val categoryId: Long = 1L,
     val name: String = "",
+    val imageUri: String? = null,
     val totalQuantity: Int = 0,
     val updatedLabel: String = "aggiornato oggi",
     val storageLocation: StorageLocation = StorageLocation.FRIDGE,

@@ -26,6 +26,7 @@ data class ProductRecognizedUi(
     val title: String,
     val subtitle: String,
     val quantityLabel: String?,
+    val imageUrl: String?,
     val suggestedCategoryLabels: List<String>,
     val preselectedCategoryId: Long?
 )

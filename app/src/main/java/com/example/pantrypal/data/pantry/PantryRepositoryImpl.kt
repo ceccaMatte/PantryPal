@@ -209,6 +209,9 @@ class PantryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateFoodCategoryImageIfEmpty(categoryId: Long, imageUri: String): Boolean =
+        foodCategoryDao.updateImageUriIfEmpty(categoryId, imageUri, Instant.now()) > 0
+
     override suspend fun saveFoodDetailChanges(draft: FoodDetailDraft) {
         val now = Instant.now()
         database.withTransaction {

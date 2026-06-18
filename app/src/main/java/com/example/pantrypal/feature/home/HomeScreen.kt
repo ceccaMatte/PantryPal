@@ -44,7 +44,7 @@ import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
+import com.example.pantrypal.core.designsystem.RecipeImage
 import com.example.pantrypal.domain.model.StorageLocationFilter
 
 @Composable
@@ -228,7 +228,12 @@ private fun RecipeSuggestionCard(
                     .fillMaxWidth()
                     .padding(end = 44.dp)
             ) {
-                PlaceholderImageBox(modifier = Modifier.size(72.dp), background = PantryColors.WarningBg.copy(alpha = 0.55f))
+                RecipeImage(
+                    imageUrl = recipe.imageUrl,
+                    localImageUri = recipe.localImageUri,
+                    modifier = Modifier.size(72.dp),
+                    background = PantryColors.WarningBg.copy(alpha = 0.55f)
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(recipe.title, style = PantryTypography.titleMedium, color = PantryColors.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(recipe.subtitle, color = PantryColors.Muted, style = PantryTypography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

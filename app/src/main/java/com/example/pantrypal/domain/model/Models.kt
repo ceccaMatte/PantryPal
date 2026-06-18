@@ -246,6 +246,7 @@ data class RecipeCard(
     val externalId: String,
     val title: String,
     val imageUrl: String?,
+    val localImageUri: String? = null,
     val preparationTimeMinutes: Int?,
     val isFavorite: Boolean = false
 )
@@ -272,6 +273,7 @@ data class RecipeDetail(
     val preparationTimeMinutes: Int?,
     val servings: Int?,
     val imageUrl: String?,
+    val localImageUri: String? = null,
     val sourceUrl: String?,
     val ingredients: List<RecipeIngredientData>
 )

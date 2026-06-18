@@ -107,6 +107,7 @@ private fun PantryRow.toUi(): PantryRowUi =
     PantryRowUi(
         categoryId = categoryId,
         name = name,
+        imageUri = imageUri,
         storageLocation = storageLocation,
         perishability = perishability,
         totalQuantity = totalQuantity,
@@ -118,6 +119,7 @@ private fun PantryRow.toExpiringUi(): ExpiringFoodCardUi =
     ExpiringFoodCardUi(
         categoryId = categoryId,
         name = name,
+        imageUri = imageUri,
         expiringQuantity = totalQuantity,
         expirationLabel = nearestExpirationDate?.toExpirationLabel().orEmpty(),
         storageLocation = storageLocation

@@ -60,7 +60,7 @@ import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
+import com.example.pantrypal.core.designsystem.RecipeImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,7 +129,12 @@ fun RecipeDetailScreen(
                 .height(150.dp)
                 .background(PantryColors.WarningBg.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
         ) {
-            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(50.dp), background = Color.Transparent)
+            RecipeImage(
+                imageUrl = state.imageUrl,
+                localImageUri = state.localImageUri,
+                modifier = Modifier.fillMaxSize(),
+                background = PantryColors.WarningBg.copy(alpha = 0.55f)
+            )
             FoodChip(
                 label = "${state.readyInMinutes} min",
                 icon = Icons.Default.AccessTime,

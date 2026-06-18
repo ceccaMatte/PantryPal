@@ -343,6 +343,8 @@ private fun RecipeDetail.toUi(
     return RecipeDetailUiState(
         externalId = externalId,
         title = title,
+        imageUrl = imageUrl,
+        localImageUri = localImageUri,
         description = description.orEmpty().ifBlank { "Ricetta pronta con ingredienti selezionati." },
         sourceUrl = sourceUrl,
         readyInMinutes = preparationTimeMinutes ?: 0,

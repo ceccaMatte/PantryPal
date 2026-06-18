@@ -49,7 +49,7 @@ import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
+import com.example.pantrypal.core.designsystem.RecipeImage
 
 @Composable
 fun RecipesScreen(
@@ -164,7 +164,12 @@ private fun RecipeCard(recipe: RecipeCardUi, onEvent: (RecipesEvent) -> Unit) {
                 .height(128.dp)
                 .background(recipeTint(recipe.externalId), RoundedCornerShape(16.dp))
         ) {
-            PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(50.dp), background = Color.Transparent)
+            RecipeImage(
+                imageUrl = recipe.imageUrl,
+                localImageUri = recipe.localImageUri,
+                modifier = Modifier.fillMaxSize(),
+                background = recipeTint(recipe.externalId)
+            )
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)

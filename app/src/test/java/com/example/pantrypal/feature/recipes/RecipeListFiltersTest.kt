@@ -33,6 +33,7 @@ class RecipeListFiltersTest {
         RecipeCardUi(
             externalId = id,
             title = title,
+            imageUrl = null,
             description = "",
             readyInMinutes = 20,
             presentCount = null,

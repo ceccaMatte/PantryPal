@@ -47,13 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.ExpiryLotsBlock
+import com.example.pantrypal.core.designsystem.FoodCategoryImage
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantryExpiryLotUi
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
 import com.example.pantrypal.domain.model.PerishabilityType
 import com.example.pantrypal.domain.model.StorageLocation
 import java.time.Instant
@@ -232,7 +232,11 @@ private fun FoodHero(state: FoodDetailUiState) {
             .height(210.dp)
             .background(PantryColors.WarningBg.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
     ) {
-        PlaceholderImageBox(modifier = Modifier.align(Alignment.Center).size(58.dp), background = Color.Transparent)
+        FoodCategoryImage(
+            imageUri = state.imageUri,
+            modifier = Modifier.fillMaxSize(),
+            background = PantryColors.WarningBg.copy(alpha = 0.55f)
+        )
         Box(
             modifier = Modifier
                 .matchParentSize()

@@ -171,6 +171,8 @@ private fun RecipeCard.toUi(isFavorite: Boolean = this.isFavorite): RecipeCardUi
     RecipeCardUi(
         externalId = externalId,
         title = title,
+        imageUrl = imageUrl,
+        localImageUri = localImageUri,
         description = "Ricetta pronta da collegare agli ingredienti in dispensa.",
         readyInMinutes = preparationTimeMinutes ?: 20,
         presentCount = null,

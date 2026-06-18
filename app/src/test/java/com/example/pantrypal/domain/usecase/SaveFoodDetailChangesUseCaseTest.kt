@@ -104,4 +104,5 @@ private class FakePantryRepositoryForFoodDetail : PantryRepository {
     override suspend fun addRecipeIngredientAlias(categoryId: Long, aliasOriginal: String, language: String?): Long = 0
     override suspend fun removeRecipeIngredientAlias(linkId: Long) = Unit
     override suspend fun deactivateBarcodeLink(barcode: String) = Unit
+    override suspend fun updateFoodCategoryImageIfEmpty(categoryId: Long, imageUri: String): Boolean = false
 }

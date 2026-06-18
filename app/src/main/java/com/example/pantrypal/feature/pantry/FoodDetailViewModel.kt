@@ -174,6 +174,7 @@ private fun FoodDetailData.toUi(): FoodDetailUiState =
     FoodDetailUiState(
         categoryId = category.id,
         name = category.name,
+        imageUri = category.imageUri,
         totalQuantity = lots.sumOf { it.quantity },
         storageLocation = category.defaultStorageLocation,
         perishability = category.defaultPerishability,

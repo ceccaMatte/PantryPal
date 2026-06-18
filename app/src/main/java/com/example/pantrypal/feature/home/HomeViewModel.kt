@@ -210,6 +210,8 @@ private fun RecipeCard.toHomeUi(): HomeRecipeUi =
     HomeRecipeUi(
         externalId = externalId,
         title = title,
+        imageUrl = imageUrl,
+        localImageUri = localImageUri,
         subtitle = "Suggerita dai tuoi ingredienti",
         timeLabel = preparationTimeMinutes?.let { "$it min" } ?: "--",
         isFavorite = isFavorite

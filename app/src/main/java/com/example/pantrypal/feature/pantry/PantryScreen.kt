@@ -42,12 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pantrypal.core.designsystem.EmptyState
+import com.example.pantrypal.core.designsystem.FoodCategoryImage
 import com.example.pantrypal.core.designsystem.FoodChip
 import com.example.pantrypal.core.designsystem.PantryCard
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
-import com.example.pantrypal.core.designsystem.PlaceholderImageBox
 import com.example.pantrypal.core.designsystem.Stepper
 import com.example.pantrypal.domain.model.StorageLocation
 import com.example.pantrypal.domain.model.StorageLocationFilter
@@ -166,7 +166,8 @@ private fun ExpiringFoodCard(food: ExpiringFoodCardUi, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .background(locationTint(food.storageLocation), RoundedCornerShape(18.dp))
     ) {
-        PlaceholderImageBox(
+        FoodCategoryImage(
+            imageUri = food.imageUri,
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(42.dp),
@@ -227,7 +228,7 @@ private fun StorageSection(
 private fun PantryFoodRow(row: PantryRowUi, onEvent: (PantryEvent) -> Unit) {
     PantryCard(onClick = { onEvent(PantryEvent.OnFoodClick(row.categoryId)) }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.lg)) {
-            PlaceholderImageBox(modifier = Modifier.size(76.dp), background = locationTint(row.storageLocation))
+            FoodCategoryImage(imageUri = row.imageUri, modifier = Modifier.size(76.dp), background = locationTint(row.storageLocation))
             Column(modifier = Modifier.weight(1f)) {
                 Text(row.name, style = PantryTypography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {

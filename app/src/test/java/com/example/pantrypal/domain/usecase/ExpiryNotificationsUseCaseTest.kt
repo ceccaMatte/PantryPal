@@ -322,6 +322,7 @@ private class ExpiryFakePantryRepository(
     override suspend fun addRecipeIngredientAlias(categoryId: Long, aliasOriginal: String, language: String?): Long = TODO("unused")
     override suspend fun removeRecipeIngredientAlias(linkId: Long) = TODO("unused")
     override suspend fun deactivateBarcodeLink(barcode: String) = TODO("unused")
+    override suspend fun updateFoodCategoryImageIfEmpty(categoryId: Long, imageUri: String): Boolean = TODO("unused")
 }
 
 private fun lot(

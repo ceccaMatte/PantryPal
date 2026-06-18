@@ -29,6 +29,8 @@ data class HomeRecipeUi(
     val externalId: String,
     val title: String,
     val subtitle: String,
+    val imageUrl: String?,
+    val localImageUri: String? = null,
     val timeLabel: String,
     val isFavorite: Boolean
 )

@@ -7,6 +7,7 @@ import com.example.pantrypal.core.database.dao.RecipeIngredientLinkDao
 import com.example.pantrypal.core.database.entity.FavoriteRecipeEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientEntity
 import com.example.pantrypal.core.database.entity.RecipeIngredientLinkEntity
+import com.example.pantrypal.core.image.ImageStorage
 import com.example.pantrypal.data.pantry.toDomain
 import com.example.pantrypal.data.recipe.cache.RecipeCacheStore
 import com.example.pantrypal.data.recipe.source.MockRecipeRemoteDataSource
@@ -37,7 +38,8 @@ class RecipeRepositoryImpl @Inject constructor(
     private val apiModeProvider: ApiModeProvider,
     private val recipeCacheStore: RecipeCacheStore,
     private val spoonacularDataSource: SpoonacularRecipeRemoteDataSource,
-    private val mockDataSource: MockRecipeRemoteDataSource
+    private val mockDataSource: MockRecipeRemoteDataSource,
+    private val imageStorage: ImageStorage
 ) : RecipeRepository {
     override val apiMode: PantryPalApiMode
         get() = apiModeProvider.mode
@@ -124,6 +126,7 @@ class RecipeRepositoryImpl @Inject constructor(
                     externalId = it.externalId,
                     title = it.title,
                     imageUrl = it.imageUrl,
+                    localImageUri = imageStorage.getRecipeLocalImageUri(it.externalId),
                     preparationTimeMinutes = it.preparationTimeMinutes,
                     isFavorite = true
                 )
@@ -154,6 +157,7 @@ class RecipeRepositoryImpl @Inject constructor(
             preparationTimeMinutes = recipe.preparationTimeMinutes,
             servings = recipe.servings,
             imageUrl = recipe.imageUrl,
+            localImageUri = imageStorage.getRecipeLocalImageUri(recipe.externalId),
             sourceUrl = recipe.sourceUrl,
             ingredients = ingredients
         )
@@ -189,10 +193,14 @@ class RecipeRepositoryImpl @Inject constructor(
                 }
             )
         }
+        recipe.imageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+            runCatching { imageStorage.saveRecipeImageFromUrl(recipe.externalId, imageUrl) }
+        }
     }
 
     override suspend fun removeFavoriteRecipe(externalId: String) {
         recipeDao.deleteFavoriteByExternalId(externalId)
+        runCatching { imageStorage.deleteRecipeImage(externalId) }
     }
 
     override suspend fun isFavorite(externalId: String): Boolean =
@@ -322,6 +330,14 @@ class RecipeRepositoryImpl @Inject constructor(
 
     private suspend fun List<RecipeCard>.toSuccessWithFavorites(): RecipeSearchResult.Success {
         val favoriteIds = recipeDao.observeFavoriteRecipeCards().first().map { it.externalId }.toSet()
-        return RecipeSearchResult.Success(map { it.copy(isFavorite = it.externalId in favoriteIds) })
+        return RecipeSearchResult.Success(
+            map {
+                val isFavorite = it.externalId in favoriteIds
+                it.copy(
+                    isFavorite = isFavorite,
+                    localImageUri = if (isFavorite) imageStorage.getRecipeLocalImageUri(it.externalId) else it.localImageUri
+                )
+            }
+        )
     }
 }

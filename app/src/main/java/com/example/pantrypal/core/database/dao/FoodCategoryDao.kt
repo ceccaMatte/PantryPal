@@ -87,6 +87,21 @@ interface FoodCategoryDao {
 
     @Query(
         """
+        UPDATE food_categories
+        SET imageUri = :imageUri,
+            updatedAt = :updatedAt
+        WHERE id = :categoryId
+          AND (imageUri IS NULL OR imageUri = '')
+        """
+    )
+    suspend fun updateImageUriIfEmpty(
+        categoryId: Long,
+        imageUri: String,
+        updatedAt: Instant
+    ): Int
+
+    @Query(
+        """
         SELECT
             fc.id AS categoryId,
             fc.name AS name,

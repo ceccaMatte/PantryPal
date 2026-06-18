@@ -474,6 +474,7 @@ class AddFoodViewModel @Inject constructor(
                 .joinToString(" - ")
                 .ifBlank { "Prodotto trovato su Open Food Facts" },
             quantityLabel = product.quantityLabel,
+            imageUrl = product.imageUrl,
             suggestedCategoryLabels = suggestions.map { it.name },
             preselectedCategoryId = preselectedCategoryId
         )
