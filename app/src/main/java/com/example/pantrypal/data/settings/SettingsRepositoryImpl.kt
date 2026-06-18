@@ -10,6 +10,7 @@ import com.example.pantrypal.domain.model.AppTheme
 import com.example.pantrypal.domain.model.StorageLocationFilter
 import com.example.pantrypal.domain.model.UserSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +34,9 @@ class SettingsRepositoryImpl @Inject constructor(
                 longLifeNotificationDays = preferences[Keys.LONG_LIFE_NOTIFICATION_DAYS] ?: 7,
                 pantryStorageFilter = preferences[Keys.PANTRY_STORAGE_FILTER]?.let(StorageLocationFilter::valueOf)
                     ?: StorageLocationFilter.ALL,
-                seedDataVersion = preferences[Keys.SEED_DATA_VERSION] ?: 0
+                seedDataVersion = preferences[Keys.SEED_DATA_VERSION] ?: 0,
+                lastExpiryNotificationDate = preferences[Keys.LAST_EXPIRY_NOTIFICATION_DATE]
+                    ?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
             )
         }
 
@@ -67,6 +70,16 @@ class SettingsRepositoryImpl @Inject constructor(
         context.settingsDataStore.edit { it[Keys.PANTRY_STORAGE_FILTER] = filter.name }
     }
 
+    override suspend fun setLastExpiryNotificationDate(date: LocalDate?) {
+        context.settingsDataStore.edit { preferences ->
+            if (date == null) {
+                preferences.remove(Keys.LAST_EXPIRY_NOTIFICATION_DATE)
+            } else {
+                preferences[Keys.LAST_EXPIRY_NOTIFICATION_DATE] = date.toString()
+            }
+        }
+    }
+
     override suspend fun getSeedDataVersion(): Int = getSettings().seedDataVersion
 
     override suspend fun setSeedDataVersion(version: Int) {
@@ -82,5 +95,6 @@ class SettingsRepositoryImpl @Inject constructor(
         val LONG_LIFE_NOTIFICATION_DAYS = intPreferencesKey("long_life_notification_days")
         val PANTRY_STORAGE_FILTER = stringPreferencesKey("pantry_storage_filter")
         val SEED_DATA_VERSION = intPreferencesKey("seed_data_version")
+        val LAST_EXPIRY_NOTIFICATION_DATE = stringPreferencesKey("last_expiry_notification_date")
     }
 }

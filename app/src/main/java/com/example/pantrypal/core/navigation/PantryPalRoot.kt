@@ -69,6 +69,8 @@ import com.example.pantrypal.feature.pantry.PantryEffect
 import com.example.pantrypal.feature.pantry.PantryScreen
 import com.example.pantrypal.feature.pantry.PantryViewModel
 import com.example.pantrypal.feature.profile.ProfileScreen
+import com.example.pantrypal.feature.profile.ProfileEffect
+import com.example.pantrypal.feature.profile.ProfileEvent
 import com.example.pantrypal.feature.profile.ProfileViewModel
 import com.example.pantrypal.feature.recipes.RecipeDetailEffect
 import com.example.pantrypal.feature.recipes.RecipeDetailScreen
@@ -219,6 +221,20 @@ private fun PantryNavHost(
         composable(AppRoute.Profile.route) {
             val viewModel: ProfileViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                viewModel.onEvent(ProfileEvent.OnNotificationPermissionResult(granted))
+            }
+            LaunchedEffect(viewModel) {
+                viewModel.effects.collect { effect ->
+                    when (effect) {
+                        ProfileEffect.RequestNotificationPermission ->
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        is ProfileEffect.ShowSnackbar -> snackbarHostState.showSnackbar(effect.message)
+                    }
+                }
+            }
             ProfileScreen(state = state, onEvent = viewModel::onEvent)
         }
 

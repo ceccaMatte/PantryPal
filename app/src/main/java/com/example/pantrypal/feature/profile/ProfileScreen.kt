@@ -119,27 +119,47 @@ fun ProfileScreen(
             }
             if (state.expirationNotificationsEnabled) {
                 Spacer(Modifier.height(PantrySpacing.lg))
-                NotificationDaysRow(
-                    icon = Icons.Default.Inventory2,
-                    title = "Alimenti freschi",
-                    days = state.freshNotificationDays,
-                    onMinus = { onEvent(ProfileEvent.OnFreshDaysMinus) },
-                    onPlus = { onEvent(ProfileEvent.OnFreshDaysPlus) }
+                Text("Avvisami prima", style = PantryTypography.labelLarge, color = PantryColors.Ink)
+                Row(horizontalArrangement = Arrangement.spacedBy(PantrySpacing.sm), modifier = Modifier.fillMaxWidth()) {
+                    ExpiryThresholdChip(1, state.expiryThresholdDays, onEvent, Modifier.weight(1f))
+                    ExpiryThresholdChip(3, state.expiryThresholdDays, onEvent, Modifier.weight(1f))
+                    ExpiryThresholdChip(7, state.expiryThresholdDays, onEvent, Modifier.weight(1f))
+                }
+                Text(
+                    "La soglia viene applicata al riepilogo giornaliero.",
+                    color = PantryColors.Muted,
+                    style = PantryTypography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(PantrySpacing.lg))
-                NotificationDaysRow(
-                    icon = Icons.Default.Inventory2,
-                    title = "Lunga conservazione",
-                    days = state.longLifeNotificationDays,
-                    iconBackground = Color(0xFFF4E8DB),
-                    iconColor = PantryColors.Pantry,
-                    onMinus = { onEvent(ProfileEvent.OnLongLifeDaysMinus) },
-                    onPlus = { onEvent(ProfileEvent.OnLongLifeDaysPlus) }
-                )
+                if (state.showDebugNotificationTrigger) {
+                    Spacer(Modifier.height(PantrySpacing.sm))
+                    FoodChip(
+                        label = "Invia test",
+                        selected = false,
+                        onClick = { onEvent(ProfileEvent.OnDebugNotificationClick) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
         Spacer(Modifier.height(88.dp))
     }
+}
+
+@Composable
+private fun ExpiryThresholdChip(
+    days: Int,
+    selectedDays: Int,
+    onEvent: (ProfileEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FoodChip(
+        label = if (days == 1) "1 giorno" else "$days giorni",
+        selected = days == selectedDays,
+        modifier = modifier,
+        onClick = { onEvent(ProfileEvent.OnExpiryThresholdSelected(days)) }
+    )
 }
 
 @Composable

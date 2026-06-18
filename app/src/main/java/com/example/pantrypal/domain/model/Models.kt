@@ -70,7 +70,8 @@ data class UserSettings(
     val freshNotificationDays: Int = 2,
     val longLifeNotificationDays: Int = 7,
     val pantryStorageFilter: StorageLocationFilter = StorageLocationFilter.ALL,
-    val seedDataVersion: Int = 0
+    val seedDataVersion: Int = 0,
+    val lastExpiryNotificationDate: LocalDate? = null
 )
 
 data class FoodCategory(
@@ -319,3 +320,20 @@ data class ExpirationNotificationContent(
     val title: String,
     val body: String
 )
+
+data class ExpiryNotificationSummary(
+    val expiredCount: Int,
+    val expiringSoonCount: Int,
+    val itemNames: List<String>
+) {
+    val totalCount: Int = expiredCount + expiringSoonCount
+}
+
+sealed interface CheckExpiryNotificationsResult {
+    data object Disabled : CheckExpiryNotificationsResult
+    data object PermissionDenied : CheckExpiryNotificationsResult
+    data object AlreadySentToday : CheckExpiryNotificationsResult
+    data object NothingToNotify : CheckExpiryNotificationsResult
+    data object NotificationShown : CheckExpiryNotificationsResult
+    data object NotificationFailed : CheckExpiryNotificationsResult
+}
