@@ -1,7 +1,10 @@
 package com.example.pantrypal.core.navigation
 
 import android.content.Intent
+import android.Manifest
 import androidx.activity.compose.BackHandler
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -222,10 +225,19 @@ private fun PantryNavHost(
         composable(AppRoute.Scan.route) {
             val viewModel: AddFoodViewModel = hiltViewModel()
             val state by viewModel.scanState.collectAsStateWithLifecycle()
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                viewModel.onScanEvent(ScanEvent.OnCameraPermissionResult(granted))
+            }
             BackHandler { viewModel.onScanEvent(ScanEvent.OnBackClick) }
             LaunchedEffect(viewModel) {
                 viewModel.effects.collect { effect ->
-                    handleAddFoodEffect(effect, navController, addOriginRoute, showSnackbar)
+                    when (effect) {
+                        AddFoodEffect.RequestCameraPermission ->
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        else -> handleAddFoodEffect(effect, navController, addOriginRoute, showSnackbar)
+                    }
                 }
             }
             ScanBarcodeScreen(state = state, onEvent = viewModel::onScanEvent)
@@ -333,6 +345,7 @@ private fun handleAddFoodEffect(
             popUpTo(AppRoute.Scan.route) { inclusive = true }
         }
         is AddFoodEffect.ShowSnackbar -> showSnackbar(effect.message)
+        AddFoodEffect.RequestCameraPermission -> { /* handled in Scan route composable */ }
     }
 }
 

@@ -1,5 +1,12 @@
 package com.example.pantrypal.feature.addfood
 
+import android.content.pm.PackageManager
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,19 +33,29 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.pantrypal.core.designsystem.PantryColors
 import com.example.pantrypal.core.designsystem.PantrySpacing
 import com.example.pantrypal.core.designsystem.PantryTypography
@@ -49,6 +67,71 @@ fun ScanBarcodeScreen(
     onEvent: (ScanEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Check permission status on first composition
+    LaunchedEffect(Unit) {
+        val granted = ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        onEvent(ScanEvent.OnCameraPermissionResult(granted))
+    }
+
+    val previewView = remember { PreviewView(context) }
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    var cameraRef by remember { mutableStateOf<Camera?>(null) }
+
+    val barcodeAnalyzer = remember {
+        BarcodeAnalyzer { barcode -> onEvent(ScanEvent.OnBarcodeDetected(barcode)) }
+    }
+
+    // Reset analyzer when processing finishes (retry / dismiss)
+    LaunchedEffect(state.isProcessingBarcode) {
+        if (!state.isProcessingBarcode) barcodeAnalyzer.reset()
+    }
+
+    // Bind camera when permission is granted
+    DisposableEffect(lifecycleOwner, state.hasCameraPermission) {
+        if (!state.hasCameraPermission) return@DisposableEffect onDispose { }
+
+        var storedProvider: ProcessCameraProvider? = null
+        val listener = Runnable {
+            val provider = cameraProviderFuture.get()
+            storedProvider = provider
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { it.setAnalyzer(ContextCompat.getMainExecutor(context), barcodeAnalyzer) }
+            try {
+                provider.unbindAll()
+                cameraRef = provider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    imageAnalysis
+                )
+            } catch (e: Exception) {
+                cameraRef = null
+            }
+        }
+        cameraProviderFuture.addListener(listener, ContextCompat.getMainExecutor(context))
+
+        onDispose {
+            storedProvider?.unbindAll()
+            cameraRef = null
+        }
+    }
+
+    // Torch control
+    LaunchedEffect(state.torchEnabled, cameraRef) {
+        cameraRef?.cameraControl?.enableTorch(state.torchEnabled)
+    }
+
+    // ProductRecognized bottom sheet
     state.recognizedProduct?.let { product ->
         ModalBottomSheet(
             onDismissRequest = { onEvent(ScanEvent.OnDismissRecognizedProduct) },
@@ -63,8 +146,17 @@ fun ScanBarcodeScreen(
             .fillMaxSize()
             .background(Color(0xFF101713))
     ) {
-        ScannerBackdrop(Modifier.fillMaxSize())
+        // Background: real camera preview or dark placeholder
+        if (state.hasCameraPermission) {
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            ScannerBackdrop(Modifier.fillMaxSize())
+        }
 
+        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -72,43 +164,60 @@ fun ScanBarcodeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.25f)) {
-                IconButton(onClick = { onEvent(ScanEvent.OnBackClick) }, modifier = Modifier.size(64.dp)) {
+            Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.35f)) {
+                IconButton(
+                    onClick = { onEvent(ScanEvent.OnBackClick) },
+                    modifier = Modifier.size(64.dp)
+                ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = Color.White)
                 }
             }
             Text("Scansione Codice", style = PantryTypography.headlineMedium, color = Color.White)
-            Surface(shape = CircleShape, color = Color(0xFFFFCC2F)) {
-                IconButton(onClick = { onEvent(ScanEvent.OnTorchClick) }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Default.FlashOn, contentDescription = "Torcia", tint = Color(0xFF121712))
+            Surface(
+                shape = CircleShape,
+                color = if (state.torchEnabled) Color(0xFFFFCC2F) else Color.Black.copy(alpha = 0.35f)
+            ) {
+                IconButton(
+                    onClick = { onEvent(ScanEvent.OnTorchClick) },
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Icon(
+                        Icons.Default.FlashOn,
+                        contentDescription = "Torcia",
+                        tint = if (state.torchEnabled) Color(0xFF121712) else Color.White
+                    )
                 }
             }
         }
 
-        Canvas(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(260.dp)
-        ) {
-            val corner = 54.dp.toPx()
-            val stroke = 4.dp.toPx()
-            drawLine(Color.White, Offset(0f, 0f), Offset(corner, 0f), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(0f, 0f), Offset(0f, corner), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(size.width, 0f), Offset(size.width - corner, 0f), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(size.width, 0f), Offset(size.width, corner), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(0f, size.height), Offset(corner, size.height), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(0f, size.height), Offset(0f, size.height - corner), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(size.width, size.height), Offset(size.width - corner, size.height), stroke, StrokeCap.Round)
-            drawLine(Color.White, Offset(size.width, size.height), Offset(size.width, size.height - corner), stroke, StrokeCap.Round)
-            drawLine(
-                Color.White.copy(alpha = 0.9f),
-                Offset(24.dp.toPx(), size.height / 2f),
-                Offset(size.width - 24.dp.toPx(), size.height / 2f),
-                stroke,
-                StrokeCap.Round
-            )
+        // Corner frame overlay (only when camera active)
+        if (state.hasCameraPermission) {
+            Canvas(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(260.dp)
+            ) {
+                val corner = 54.dp.toPx()
+                val stroke = 4.dp.toPx()
+                drawLine(Color.White, Offset(0f, 0f), Offset(corner, 0f), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(0f, 0f), Offset(0f, corner), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(size.width, 0f), Offset(size.width - corner, 0f), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(size.width, 0f), Offset(size.width, corner), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(0f, size.height), Offset(corner, size.height), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(0f, size.height), Offset(0f, size.height - corner), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(size.width, size.height), Offset(size.width - corner, size.height), stroke, StrokeCap.Round)
+                drawLine(Color.White, Offset(size.width, size.height), Offset(size.width, size.height - corner), stroke, StrokeCap.Round)
+                drawLine(
+                    Color.White.copy(alpha = 0.7f),
+                    Offset(24.dp.toPx(), size.height / 2f),
+                    Offset(size.width - 24.dp.toPx(), size.height / 2f),
+                    stroke,
+                    StrokeCap.Round
+                )
+            }
         }
 
+        // Bottom panel
         Surface(
             modifier = Modifier.align(Alignment.BottomCenter),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -126,51 +235,109 @@ fun ScanBarcodeScreen(
                         .size(width = 64.dp, height = 6.dp)
                         .background(PantryColors.Line, RoundedCornerShape(8.dp))
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)) {
-                    if (state.isLookingUp || state.isReading) {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp), color = PantryColors.Green700, strokeWidth = 3.dp)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = PantryColors.Green700)
-                    }
-                    Text(state.statusLabel, style = PantryTypography.titleMedium, color = PantryColors.Muted)
-                }
-                OutlinedTextField(
-                    value = state.barcodeInput,
-                    onValueChange = { onEvent(ScanEvent.OnBarcodeChange(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Barcode") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PantryColors.Green700,
-                        unfocusedBorderColor = PantryColors.Line,
-                        focusedContainerColor = PantryColors.Card,
-                        unfocusedContainerColor = PantryColors.Card
+
+                when {
+                    !state.hasCameraPermission -> PermissionRequestContent(
+                        isRequesting = state.isRequestingPermission,
+                        onRequestPermission = { onEvent(ScanEvent.OnRequestCameraPermissionClick) }
                     )
-                )
-                Button(
-                    onClick = { onEvent(ScanEvent.OnSearchBarcodeClick) },
-                    enabled = !state.isLookingUp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Text(if (state.isLookingUp) "Ricerca..." else "Cerca barcode", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
+                    state.isLookingUp || state.isProcessingBarcode -> ScanningActiveContent(
+                        label = if (state.isLookingUp) "Ricerca prodotto…" else "Analisi barcode…"
+                    )
+                    else -> ScanReadyContent(label = state.statusLabel)
                 }
+
                 Button(
                     onClick = { onEvent(ScanEvent.OnManualClick) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = PantryColors.Card, contentColor = PantryColors.Green700),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PantryColors.Card,
+                        contentColor = PantryColors.Green700
+                    ),
                     shape = RoundedCornerShape(18.dp)
                 ) {
-                    Text("Inserisci manualmente", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Inserisci manualmente",
+                        style = PantryTypography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PermissionRequestContent(isRequesting: Boolean, onRequestPermission: () -> Unit) {
+    if (isRequesting) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                color = PantryColors.Green700,
+                strokeWidth = 3.dp
+            )
+            Text("Richiesta permesso…", style = PantryTypography.titleMedium, color = PantryColors.Muted)
+        }
+    } else {
+        Icon(
+            Icons.Default.CameraAlt,
+            contentDescription = null,
+            tint = PantryColors.Green700,
+            modifier = Modifier.size(40.dp)
+        )
+        Text(
+            "Scansiona barcode",
+            style = PantryTypography.headlineMedium
+        )
+        Text(
+            "Consenti l'accesso alla fotocamera per leggere il codice a barre",
+            color = PantryColors.Muted,
+            textAlign = TextAlign.Center
+        )
+        Button(
+            onClick = onRequestPermission,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PantryColors.Green700,
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text("Consenti fotocamera", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun ScanningActiveContent(label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(22.dp),
+            color = PantryColors.Green700,
+            strokeWidth = 3.dp
+        )
+        Text(label, style = PantryTypography.titleMedium, color = PantryColors.Muted)
+    }
+}
+
+@Composable
+private fun ScanReadyContent(label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PantrySpacing.md)
+    ) {
+        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = PantryColors.Green700)
+        Text(label, style = PantryTypography.titleMedium, color = PantryColors.Muted)
     }
 }
 
@@ -215,11 +382,24 @@ private fun ProductRecognizedSheet(product: ProductRecognizedUi, onEvent: (ScanE
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PantryColors.Green700,
+                contentColor = Color.White
+            ),
             shape = RoundedCornerShape(18.dp)
         ) {
             Text("Aggiungi o modifica", style = PantryTypography.titleMedium, fontWeight = FontWeight.Bold)
         }
+        OutlinedButton(
+            onClick = { onEvent(ScanEvent.OnDismissRecognizedProduct) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text("Non è questo", style = PantryTypography.titleMedium)
+        }
+        Spacer(Modifier.height(PantrySpacing.sm))
     }
 }
 

@@ -166,6 +166,81 @@ class SaveAddedFoodUseCaseTest {
         assertEquals(SaveAddedFoodResult.Success(7), result)
         assertEquals(lots, repository.savedLots)
     }
+
+    @Test
+    fun forwardsBarcodeProductDraftToRepositoryOnSave() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+        val draft = BarcodeProductDraft(
+            barcode = "1234567890123",
+            productName = "Latte Parmalat",
+            genericName = "Latte",
+            brand = "Parmalat",
+            quantityLabel = "1L",
+            imageUrl = null,
+            rawCategoryTags = emptyList(),
+            rawFoodGroupTags = emptyList()
+        )
+
+        useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = listOf(AddFoodLotDraft(LocalDate.of(2026, 7, 1), 1)),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH,
+                barcodeProductDraft = draft
+            )
+        )
+
+        assertEquals(draft, repository.savedBarcodeProductDraft)
+    }
+
+    @Test
+    fun doesNotForwardBarcodeProductDraftWhenAbsent() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+
+        useCase(
+            SaveAddedFoodCommand(
+                categorySelection = AddFoodCategorySelection.Existing(7),
+                lots = listOf(AddFoodLotDraft(LocalDate.of(2026, 7, 1), 1)),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH,
+                barcodeProductDraft = null
+            )
+        )
+
+        assertEquals(null, repository.savedBarcodeProductDraft)
+    }
+
+    @Test
+    fun doesNotSaveWhenCategoryNotSelectedEvenIfBarcodePresent() = runBlocking {
+        val repository = FakePantryRepositoryForAddedFood()
+        val useCase = SaveAddedFoodUseCase(repository)
+        val draft = BarcodeProductDraft(
+            barcode = "1234567890123",
+            productName = "Test",
+            genericName = null,
+            brand = null,
+            quantityLabel = null,
+            imageUrl = null,
+            rawCategoryTags = emptyList(),
+            rawFoodGroupTags = emptyList()
+        )
+
+        val result = useCase(
+            SaveAddedFoodCommand(
+                categorySelection = null,
+                lots = listOf(AddFoodLotDraft(LocalDate.of(2026, 7, 1), 1)),
+                storageLocation = StorageLocation.FRIDGE,
+                perishability = PerishabilityType.FRESH,
+                barcodeProductDraft = draft
+            )
+        )
+
+        assertTrue(result is SaveAddedFoodResult.ValidationError)
+        assertEquals(null, repository.savedBarcodeProductDraft)
+    }
 }
 
 private class FakePantryRepositoryForAddedFood(
@@ -173,6 +248,7 @@ private class FakePantryRepositoryForAddedFood(
 ) : PantryRepository {
     var savedSelection: AddFoodCategorySelection? = null
     var savedLots: List<AddFoodLotDraft> = emptyList()
+    var savedBarcodeProductDraft: BarcodeProductDraft? = null
 
     override fun observePantryRows(filter: StorageLocationFilter): Flow<List<PantryRow>> = emptyFlow()
     override fun observeFoodDetail(categoryId: Long): Flow<FoodDetailData?> = emptyFlow()
@@ -192,6 +268,7 @@ private class FakePantryRepositoryForAddedFood(
     ): Long {
         savedSelection = categorySelection
         savedLots = lots
+        savedBarcodeProductDraft = barcodeProductDraft
         return returnCategoryId
     }
     override suspend fun saveFoodDetailChanges(draft: FoodDetailDraft) = Unit

@@ -8,10 +8,14 @@ import java.time.LocalDate
 data class ScanUiState(
     val isReading: Boolean = false,
     val torchEnabled: Boolean = false,
-    val statusLabel: String = "Inserisci un barcode per cercare il prodotto",
+    val statusLabel: String = "Inquadra il codice a barre",
     val barcodeInput: String = "",
     val isLookingUp: Boolean = false,
-    val recognizedProduct: ProductRecognizedUi? = null
+    val recognizedProduct: ProductRecognizedUi? = null,
+    val hasCameraPermission: Boolean = false,
+    val isRequestingPermission: Boolean = false,
+    val isCameraReady: Boolean = false,
+    val isProcessingBarcode: Boolean = false,
 )
 
 data class ProductRecognizedUi(
@@ -57,6 +61,10 @@ sealed interface ScanEvent {
     data object OnSearchBarcodeClick : ScanEvent
     data object OnUseRecognizedProductClick : ScanEvent
     data object OnDismissRecognizedProduct : ScanEvent
+    data object OnRequestCameraPermissionClick : ScanEvent
+    data class OnCameraPermissionResult(val granted: Boolean) : ScanEvent
+    data class OnBarcodeDetected(val value: String) : ScanEvent
+    data object OnRetryScanClick : ScanEvent
 }
 
 sealed interface ManualAddEvent {
@@ -77,4 +85,5 @@ sealed interface AddFoodEffect {
     data object FinishAddFlow : AddFoodEffect
     data object NavigateToManualAdd : AddFoodEffect
     data class ShowSnackbar(val message: String) : AddFoodEffect
+    data object RequestCameraPermission : AddFoodEffect
 }
