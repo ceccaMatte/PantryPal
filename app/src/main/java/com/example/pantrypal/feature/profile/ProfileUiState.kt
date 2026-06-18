@@ -9,7 +9,6 @@ data class ProfileUiState(
     val expirationNotificationsEnabled: Boolean = false,
     val freshNotificationDays: Int = 2,
     val longLifeNotificationDays: Int = 7,
-    val expiryThresholdDays: Int = 3,
     val showDebugNotificationTrigger: Boolean = false
 )
 
@@ -18,7 +17,6 @@ sealed interface ProfileEvent {
     data class OnThemeSelected(val theme: AppTheme) : ProfileEvent
     data class OnNotificationsChanged(val enabled: Boolean) : ProfileEvent
     data class OnNotificationPermissionResult(val granted: Boolean) : ProfileEvent
-    data class OnExpiryThresholdSelected(val days: Int) : ProfileEvent
     data object OnDebugNotificationClick : ProfileEvent
     data object OnFreshDaysMinus : ProfileEvent
     data object OnFreshDaysPlus : ProfileEvent

@@ -19,13 +19,16 @@ class CheckExpiryNotificationsUseCase @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val dateProvider: DateProvider
 ) {
-    suspend operator fun invoke(): CheckExpiryNotificationsResult {
+    suspend operator fun invoke(
+        ignoreAlreadySentToday: Boolean = false,
+        updateLastNotificationDate: Boolean = true
+    ): CheckExpiryNotificationsResult {
         val settings = settingsRepository.getSettings()
         if (!settings.expirationNotificationsEnabled) return CheckExpiryNotificationsResult.Disabled
         if (!notificationRepository.areNotificationsAllowed()) return CheckExpiryNotificationsResult.PermissionDenied
 
         val today = dateProvider.today()
-        if (settings.lastExpiryNotificationDate == today) {
+        if (!ignoreAlreadySentToday && settings.lastExpiryNotificationDate == today) {
             return CheckExpiryNotificationsResult.AlreadySentToday
         }
 
@@ -38,7 +41,9 @@ class CheckExpiryNotificationsUseCase @Inject constructor(
 
         val shown = notificationRepository.showExpirationSummaryNotification(summary.toNotificationContent())
         return if (shown) {
-            settingsRepository.setLastExpiryNotificationDate(today)
+            if (updateLastNotificationDate) {
+                settingsRepository.setLastExpiryNotificationDate(today)
+            }
             CheckExpiryNotificationsResult.NotificationShown
         } else {
             CheckExpiryNotificationsResult.NotificationFailed
@@ -77,9 +82,11 @@ fun buildExpiryNotificationSummary(
                 }
             }
         }
-        .sortedWith(compareBy<CategoryExpirySummary> { if (it.status == ExpiryStatus.EXPIRED) 0 else 1 }
-            .thenBy { it.expirationDate }
-            .thenBy { it.name.lowercase() })
+        .sortedWith(
+            compareBy<CategoryExpirySummary> { if (it.status == ExpiryStatus.EXPIRED) 0 else 1 }
+                .thenBy { it.expirationDate }
+                .thenBy { it.name.lowercase() }
+        )
 
     return ExpiryNotificationSummary(
         expiredCount = categorySummaries.count { it.status == ExpiryStatus.EXPIRED },
@@ -91,9 +98,9 @@ fun buildExpiryNotificationSummary(
 fun ExpiryNotificationSummary.toNotificationContent(): ExpirationNotificationContent {
     val countText = when {
         expiredCount > 0 && expiringSoonCount > 0 ->
-            "$expiredCount ${expiredCount.foodWord()} già ${expiredCount.expiredVerb()}, " +
+            "$expiredCount ${expiredCount.foodWord()} gia ${expiredCount.expiredVerb()}, " +
                 "$expiringSoonCount ${expiringSoonCount.foodWord()} scadono presto"
-        expiredCount > 0 -> "$expiredCount ${expiredCount.foodWord()} già ${expiredCount.expiredVerb()}"
+        expiredCount > 0 -> "$expiredCount ${expiredCount.foodWord()} gia ${expiredCount.expiredVerb()}"
         else -> "$expiringSoonCount ${expiringSoonCount.foodWord()} scadono presto"
     }
     val names = formatNames(itemNames, totalCount)

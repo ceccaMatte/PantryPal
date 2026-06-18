@@ -47,12 +47,11 @@ class ProfileViewModel @Inject constructor(
                 is ProfileEvent.OnThemeSelected -> settingsRepository.updateTheme(event.theme)
                 is ProfileEvent.OnNotificationsChanged -> onNotificationsChanged(event.enabled)
                 is ProfileEvent.OnNotificationPermissionResult -> onNotificationPermissionResult(event.granted)
-                is ProfileEvent.OnExpiryThresholdSelected -> updateNotificationSettingsUseCase.setExpiryThresholdDays(event.days)
                 ProfileEvent.OnDebugNotificationClick -> runDebugNotificationCheck()
-                ProfileEvent.OnFreshDaysMinus -> settingsRepository.updateFreshNotificationDays(current.freshNotificationDays - 1)
-                ProfileEvent.OnFreshDaysPlus -> settingsRepository.updateFreshNotificationDays(current.freshNotificationDays + 1)
-                ProfileEvent.OnLongLifeDaysMinus -> settingsRepository.updateLongLifeNotificationDays(current.longLifeNotificationDays - 1)
-                ProfileEvent.OnLongLifeDaysPlus -> settingsRepository.updateLongLifeNotificationDays(current.longLifeNotificationDays + 1)
+                ProfileEvent.OnFreshDaysMinus -> updateNotificationSettingsUseCase.setFreshNotificationDays(current.freshNotificationDays - 1)
+                ProfileEvent.OnFreshDaysPlus -> updateNotificationSettingsUseCase.setFreshNotificationDays(current.freshNotificationDays + 1)
+                ProfileEvent.OnLongLifeDaysMinus -> updateNotificationSettingsUseCase.setLongLifeNotificationDays(current.longLifeNotificationDays - 1)
+                ProfileEvent.OnLongLifeDaysPlus -> updateNotificationSettingsUseCase.setLongLifeNotificationDays(current.longLifeNotificationDays + 1)
             }
         }
     }
@@ -80,7 +79,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     private suspend fun runDebugNotificationCheck() {
-        val message = when (checkExpiryNotificationsUseCase()) {
+        val message = when (checkExpiryNotificationsUseCase(ignoreAlreadySentToday = true, updateLastNotificationDate = false)) {
             CheckExpiryNotificationsResult.NotificationShown -> "Notifica di scadenza inviata"
             CheckExpiryNotificationsResult.Disabled -> "Attiva le notifiche per testarle"
             CheckExpiryNotificationsResult.PermissionDenied -> "Permesso notifiche non concesso"
@@ -100,10 +99,5 @@ private fun UserSettings.toUi(): ProfileUiState =
         expirationNotificationsEnabled = expirationNotificationsEnabled,
         freshNotificationDays = freshNotificationDays,
         longLifeNotificationDays = longLifeNotificationDays,
-        expiryThresholdDays = when {
-            freshNotificationDays == longLifeNotificationDays &&
-                freshNotificationDays in setOf(1, 3, 7) -> freshNotificationDays
-            else -> 3
-        },
         showDebugNotificationTrigger = BuildConfig.DEBUG
     )

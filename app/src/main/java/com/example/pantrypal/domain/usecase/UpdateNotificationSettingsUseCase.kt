@@ -17,17 +17,19 @@ class UpdateNotificationSettingsUseCase @Inject constructor(
         }
     }
 
-    suspend fun setExpiryThresholdDays(days: Int) {
-        val threshold = days.takeIf { it in AllowedThresholds } ?: DefaultThreshold
-        settingsRepository.updateFreshNotificationDays(threshold)
-        settingsRepository.updateLongLifeNotificationDays(threshold)
+    suspend fun setFreshNotificationDays(days: Int) {
+        settingsRepository.updateFreshNotificationDays(days)
+        rescheduleIfEnabled()
+    }
+
+    suspend fun setLongLifeNotificationDays(days: Int) {
+        settingsRepository.updateLongLifeNotificationDays(days)
+        rescheduleIfEnabled()
+    }
+
+    private suspend fun rescheduleIfEnabled() {
         if (settingsRepository.getSettings().expirationNotificationsEnabled) {
             notificationScheduler.scheduleDailyExpiryCheck()
         }
-    }
-
-    private companion object {
-        val AllowedThresholds = setOf(1, 3, 7)
-        const val DefaultThreshold = 3
     }
 }

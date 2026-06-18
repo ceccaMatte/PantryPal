@@ -70,7 +70,7 @@ class ExpiryNotificationsUseCaseTest {
     }
 
     @Test
-    fun zeroQuantityAndOutsideThresholdAreIgnored() {
+    fun freshAndLongLifeUseSeparateThresholds() {
         val summary = buildExpiryNotificationSummary(
             lots = listOf(
                 lot(categoryId = 1, name = "Latte", date = today.plusDays(1), quantity = 0),
@@ -120,6 +120,32 @@ class ExpiryNotificationsUseCaseTest {
     }
 
     @Test
+    fun debugCheckIgnoresAlreadySentTodayAndDoesNotUpdateLastDate() = runTest {
+        val yesterday = today.minusDays(1)
+        val settingsRepository = ExpiryFakeSettingsRepository(
+            settings(enabled = true, lastDate = today)
+        )
+        val notificationRepository = FakeNotificationRepository()
+
+        settingsRepository.setLastExpiryNotificationDate(today)
+        val result = useCase(
+            settingsRepository = settingsRepository,
+            notificationRepository = notificationRepository
+        ).invoke(ignoreAlreadySentToday = true, updateLastNotificationDate = false)
+
+        assertEquals(CheckExpiryNotificationsResult.NotificationShown, result)
+        assertEquals(1, notificationRepository.showCount)
+        assertEquals(today, settingsRepository.current.lastExpiryNotificationDate)
+
+        settingsRepository.setLastExpiryNotificationDate(yesterday)
+        useCase(
+            settingsRepository = settingsRepository,
+            notificationRepository = notificationRepository
+        ).invoke(ignoreAlreadySentToday = true, updateLastNotificationDate = false)
+        assertEquals(yesterday, settingsRepository.current.lastExpiryNotificationDate)
+    }
+
+    @Test
     fun relevantLotsShowNotificationAndPersistLastDate() = runTest {
         val settingsRepository = ExpiryFakeSettingsRepository(settings(enabled = true))
         val pantryRepository = ExpiryFakePantryRepository(listOf(lot(categoryId = 1, name = "Latte", date = today.plusDays(1))))
@@ -145,10 +171,15 @@ class ExpiryNotificationsUseCaseTest {
         assertTrue(settingsRepository.current.expirationNotificationsEnabled)
         assertEquals(1, scheduler.scheduleCount)
 
-        useCase.setExpiryThresholdDays(7)
+        useCase.setFreshNotificationDays(7)
         assertEquals(7, settingsRepository.current.freshNotificationDays)
-        assertEquals(7, settingsRepository.current.longLifeNotificationDays)
+        assertEquals(3, settingsRepository.current.longLifeNotificationDays)
         assertEquals(2, scheduler.scheduleCount)
+
+        useCase.setLongLifeNotificationDays(30)
+        assertEquals(7, settingsRepository.current.freshNotificationDays)
+        assertEquals(30, settingsRepository.current.longLifeNotificationDays)
+        assertEquals(3, scheduler.scheduleCount)
 
         useCase.setNotificationsEnabled(false)
         assertFalse(settingsRepository.current.expirationNotificationsEnabled)
