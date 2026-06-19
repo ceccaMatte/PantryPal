@@ -246,7 +246,7 @@ class SaveAddedFoodUseCaseTest {
     }
 
     @Test
-    fun savesBarcodeImageForCategoryWithoutImageAfterFoodSave() = runBlocking {
+    fun savesBarcodeImageForCategoryWithoutImageWhenRequestedAfterFoodSave() = runBlocking {
         val repository = FakePantryRepositoryForAddedFood(returnCategoryId = 7).apply {
             categories[7] = category(id = 7, imageUri = null)
         }
@@ -254,8 +254,11 @@ class SaveAddedFoodUseCaseTest {
         val useCase = SaveAddedFoodUseCase(repository, imageStorage)
 
         val result = useCase(validCommand(barcodeImageUrl = "https://images.example/milk.jpg"))
+        useCase.saveCategoryImageIfNeeded(
+            categoryId = (result as SaveAddedFoodResult.Success).categoryId,
+            imageUrl = "https://images.example/milk.jpg"
+        )
 
-        assertTrue(result is SaveAddedFoodResult.Success)
         assertEquals(1, imageStorage.categoryCalls)
         assertEquals(7L, imageStorage.lastCategoryId)
         assertEquals("https://images.example/milk.jpg", imageStorage.lastCategoryUrl)
@@ -271,8 +274,11 @@ class SaveAddedFoodUseCaseTest {
         val useCase = SaveAddedFoodUseCase(repository, imageStorage)
 
         val result = useCase(validCommand(barcodeImageUrl = "https://images.example/milk.jpg"))
+        useCase.saveCategoryImageIfNeeded(
+            categoryId = (result as SaveAddedFoodResult.Success).categoryId,
+            imageUrl = "https://images.example/milk.jpg"
+        )
 
-        assertTrue(result is SaveAddedFoodResult.Success)
         assertEquals(0, imageStorage.categoryCalls)
         assertEquals(null, repository.updatedImageUri)
     }
@@ -286,8 +292,11 @@ class SaveAddedFoodUseCaseTest {
         val useCase = SaveAddedFoodUseCase(repository, imageStorage)
 
         val result = useCase(validCommand(barcodeImageUrl = "https://images.example/milk.jpg"))
+        useCase.saveCategoryImageIfNeeded(
+            categoryId = (result as SaveAddedFoodResult.Success).categoryId,
+            imageUrl = "https://images.example/milk.jpg"
+        )
 
-        assertTrue(result is SaveAddedFoodResult.Success)
         assertEquals(1, imageStorage.categoryCalls)
         assertEquals(null, repository.updatedImageUri)
         assertEquals("1234567890123", repository.savedBarcodeProductDraft?.barcode)

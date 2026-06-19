@@ -259,6 +259,10 @@ class AddFoodViewModel @Inject constructor(
             )
         )) {
             is SaveAddedFoodResult.Success -> {
+                val imageUrl = manualBarcodeProductDraft?.imageUrl
+                if (!imageUrl.isNullOrBlank()) {
+                    saveAddedFoodUseCase.enqueueCategoryImageSave(result.categoryId, imageUrl)
+                }
                 clearAddFlowState()
                 refreshSuggestions("")
                 _effects.send(AddFoodEffect.FinishAddFlow)

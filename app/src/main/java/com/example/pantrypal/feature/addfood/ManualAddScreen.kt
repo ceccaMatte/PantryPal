@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -239,8 +240,18 @@ fun ManualAddScreen(
             colors = ButtonDefaults.buttonColors(containerColor = PantryColors.Green700, contentColor = Color.White),
             shape = RoundedCornerShape(18.dp)
         ) {
-            Icon(Icons.Default.Check, contentDescription = null)
-            Text(if (state.isSaving) " Salvataggio..." else " Salva alimento", style = PantryTypography.titleMedium)
+            if (state.isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.5.dp,
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.25f)
+                )
+                Text(" Salvataggio...", style = PantryTypography.titleMedium)
+            } else {
+                Icon(Icons.Default.Check, contentDescription = null)
+                Text(" Salva alimento", style = PantryTypography.titleMedium)
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

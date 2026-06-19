@@ -8,11 +8,19 @@ import com.example.pantrypal.domain.model.SaveAddedFoodCommand
 import com.example.pantrypal.domain.model.SaveAddedFoodResult
 import com.example.pantrypal.domain.model.SaveAddedFoodValidationError
 import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
+@Singleton
 class SaveAddedFoodUseCase @Inject constructor(
     private val pantryRepository: PantryRepository,
     private val imageStorage: ImageStorage = NoOpImageStorage
 ) {
+    private val imageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     suspend operator fun invoke(command: SaveAddedFoodCommand): SaveAddedFoodResult {
         val validLots = command.lots.filter { it.quantity > 0 }
         val errors = buildSet {
@@ -32,18 +40,26 @@ class SaveAddedFoodUseCase @Inject constructor(
                 lots = validLots,
                 barcodeProductDraft = command.barcodeProductDraft
             )
-            runCatching { maybeSaveCategoryImage(categoryId, command.barcodeProductDraft?.imageUrl) }
             SaveAddedFoodResult.Success(categoryId)
         } catch (_: Exception) {
             SaveAddedFoodResult.StorageError
         }
     }
 
-    private suspend fun maybeSaveCategoryImage(categoryId: Long, imageUrl: String?) {
+    fun enqueueCategoryImageSave(categoryId: Long, imageUrl: String?) {
         val url = imageUrl?.takeIf { it.isNotBlank() } ?: return
-        val category = pantryRepository.getFoodCategory(categoryId) ?: return
-        if (!category.imageUri.isNullOrBlank()) return
-        val localImageUri = imageStorage.saveCategoryImageFromUrl(categoryId, url) ?: return
-        pantryRepository.updateFoodCategoryImageIfEmpty(categoryId, localImageUri)
+        imageScope.launch {
+            saveCategoryImageIfNeeded(categoryId, url)
+        }
+    }
+
+    suspend fun saveCategoryImageIfNeeded(categoryId: Long, imageUrl: String?) {
+        runCatching {
+            val url = imageUrl?.takeIf { it.isNotBlank() } ?: return
+            val category = pantryRepository.getFoodCategory(categoryId) ?: return
+            if (!category.imageUri.isNullOrBlank()) return
+            val localImageUri = imageStorage.saveCategoryImageFromUrl(categoryId, url) ?: return
+            pantryRepository.updateFoodCategoryImageIfEmpty(categoryId, localImageUri)
+        }
     }
 }
