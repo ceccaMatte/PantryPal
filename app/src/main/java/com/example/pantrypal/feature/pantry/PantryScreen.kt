@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -163,32 +164,34 @@ private fun ExpiringFoodCard(food: ExpiringFoodCardUi, onClick: () -> Unit) {
         modifier = Modifier
             .width(150.dp)
             .height(156.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(locationTint(food.storageLocation))
             .clickable(onClick = onClick)
-            .background(locationTint(food.storageLocation), RoundedCornerShape(18.dp))
     ) {
+        // Immagine che riempie tutta la card come sfondo
         FoodCategoryImage(
             imageUri = food.imageUri,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(42.dp),
-            background = Color.Transparent
+            modifier = Modifier.fillMaxSize(),
+            background = locationTint(food.storageLocation)
         )
+        // Gradiente scuro nella metà inferiore per rendere leggibile il testo
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
-                        0.45f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.55f)
-                    ),
-                    RoundedCornerShape(18.dp)
+                        0.40f to Color.Transparent,
+                        1.0f to Color.Black.copy(alpha = 0.62f)
+                    )
                 )
         )
+        // Badge quantità in scadenza
         FoodChip(
             label = "x${food.expiringQuantity}",
             badge = null,
             modifier = Modifier.padding(10.dp)
         )
+        // Nome e luogo in basso
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
